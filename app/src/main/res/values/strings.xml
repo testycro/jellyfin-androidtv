@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="MissingTranslation">
-    <string name="app_name_release" translatable="false" tools:ignore="UnusedResources">Jellyfin</string>
+    <string name="app_name_release" translatable="false" tools:ignore="UnusedResources">Jellyfin Fork</string>
     <string name="app_name_debug" translatable="false" tools:ignore="UnusedResources">Jellyfin Debug</string>
     <string name="video_error_unknown_error">Failed to load video</string>
     <string name="loading">Loading…</string>
@@ -56,6 +56,7 @@
     <string name="lbl_chapters">Chapters</string>
     <string name="lbl_specials">Specials</string>
     <string name="lbl_trailers">Trailers</string>
+    <string name="lbl_trailer_number">Trailer %1$d</string>
     <string name="lbl_items">Items</string>
     <string name="lbl_item">Item</string>
     <string name="lbl_series">Series</string>
@@ -80,6 +81,13 @@
     <string name="lbl_bracket_unknown">Unknown</string>
     <string name="lbl_trailer">"Trailer "</string>
     <string name="lbl_play_trailers">Play trailer(s)</string>
+    <string name="lbl_trailers_search">Search for trailers (French, then English)</string>
+    <string name="msg_trailers_searching">Searching for trailers…</string>
+    <string name="msg_trailers_added">%1$d trailer(s) added (%2$s)</string>
+    <string name="msg_trailers_none">No new trailer found</string>
+    <string name="msg_trailers_restored">%1$d removed trailer(s) put back in the list</string>
+    <string name="msg_trailers_search_failed">Trailer search failed</string>
+    <string name="msg_trailer_hidden">Trailer removed from the list (a search puts it back)</string>
     <string name="lbl_no">No</string>
     <string name="lbl_yes">Yes</string>
     <string name="lbl_enter_server_address">Enter server address</string>

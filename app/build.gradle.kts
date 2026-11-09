@@ -6,6 +6,10 @@ plugins {
 	alias(libs.plugins.aboutlibraries)
 }
 
+// Fork: application id suffix and name of release builds, see the "App / Release (fork)" workflow
+val forkSuffix = project.getProperty("fork.suffix")?.takeIf { it.isNotBlank() } ?: "fork"
+val forkName = project.getProperty("fork.name")?.takeIf { it.isNotBlank() }
+
 android {
 	namespace = "org.jellyfin.androidtv"
 	compileSdk = libs.versions.android.compileSdk.get().toInt()
@@ -55,13 +59,17 @@ android {
 		release {
 			isMinifyEnabled = false
 
-			// Set package names used in various XML files
-			resValue("string", "app_id", namespace!!)
-			resValue("string", "app_search_suggest_authority", "${namespace}.content")
-			resValue("string", "app_search_suggest_intent_data", "content://${namespace}.content/intent")
+			// Use different application id to run the fork next to the official app
+			// FORK_SUFFIX (or -Pfork.suffix) changes it, so several builds of the fork can be installed side by side
+			applicationIdSuffix = ".$forkSuffix"
 
-			// Set flavored application name
-			resValue("string", "app_name", "@string/app_name_release")
+			// Set package names used in various XML files
+			resValue("string", "app_id", namespace + applicationIdSuffix)
+			resValue("string", "app_search_suggest_authority", "${namespace + applicationIdSuffix}.content")
+			resValue("string", "app_search_suggest_intent_data", "content://${namespace + applicationIdSuffix}.content/intent")
+
+			// Set flavored application name, FORK_NAME (or -Pfork.name) overrides it
+			resValue("string", "app_name", forkName ?: "@string/app_name_release")
 
 			buildConfigField("boolean", "DEVELOPMENT", "false")
 

@@ -43,9 +43,12 @@ import org.jellyfin.androidtv.ui.itemhandling.refreshItem
 import org.jellyfin.androidtv.ui.navigation.NavigationRepository
 import org.jellyfin.androidtv.ui.playback.AudioEventListener
 import org.jellyfin.androidtv.ui.playback.MediaManager
+import org.jellyfin.androidtv.ui.presentation.CardImagePreloader
 import org.jellyfin.androidtv.ui.presentation.CardPresenter
 import org.jellyfin.androidtv.ui.presentation.MutableObjectAdapter
 import org.jellyfin.androidtv.ui.presentation.PositionableListRowPresenter
+import org.jellyfin.androidtv.ui.presentation.enableItemPrefetch
+import org.jellyfin.androidtv.ui.presentation.increaseRowsViewCache
 import org.jellyfin.androidtv.util.KeyProcessor
 import org.jellyfin.playback.core.PlaybackManager
 import org.jellyfin.sdk.api.client.ApiClient
@@ -59,6 +62,7 @@ import kotlin.time.Duration.Companion.seconds
 class HomeRowsFragment : RowsSupportFragment(), AudioEventListener, View.OnKeyListener {
 	private val api by inject<ApiClient>()
 	private val backgroundService by inject<BackgroundService>()
+	private val imagePreloader by lazy { CardImagePreloader(requireContext(), this) }
 	private val playbackManager by inject<PlaybackManager>()
 	private val mediaManager by inject<MediaManager>()
 	private val notificationsRepository by inject<NotificationsRepository>()
@@ -186,6 +190,9 @@ class HomeRowsFragment : RowsSupportFragment(), AudioEventListener, View.OnKeyLi
 	override fun onResume() {
 		super.onResume()
 
+		verticalGridView?.increaseRowsViewCache()
+		verticalGridView?.enableItemPrefetch()
+
 		//React to deletion
 		if (currentRow != null && currentItem != null && currentItem?.baseItem != null && currentItem!!.baseItem!!.id == dataRefreshService.lastDeletedItemId) {
 			(currentRow!!.adapter as ItemRowAdapter).remove(currentItem)
@@ -233,6 +240,11 @@ class HomeRowsFragment : RowsSupportFragment(), AudioEventListener, View.OnKeyLi
 		adapter.refreshItem(api, this, item)
 	}
 
+	override fun onPause() {
+		imagePreloader.cancel()
+		super.onPause()
+	}
+
 	override fun onDestroy() {
 		super.onDestroy()
 
@@ -272,6 +284,7 @@ class HomeRowsFragment : RowsSupportFragment(), AudioEventListener, View.OnKeyLi
 				itemRowAdapter?.loadMoreItemsIfNeeded(itemRowAdapter.indexOf(item))
 
 				backgroundService.setBackground(item.baseItem)
+				imagePreloader.preloadAroundRow(adapter, row, item)
 			}
 		}
 	}

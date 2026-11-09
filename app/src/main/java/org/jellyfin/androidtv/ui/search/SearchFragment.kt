@@ -28,7 +28,9 @@ import androidx.fragment.app.Fragment
 import androidx.fragment.compose.AndroidFragment
 import androidx.fragment.compose.content
 import androidx.leanback.app.RowsSupportFragment
+import androidx.leanback.widget.OnItemViewSelectedListener
 import org.jellyfin.androidtv.ui.base.JellyfinTheme
+import org.jellyfin.androidtv.ui.presentation.CardImagePreloader
 import org.jellyfin.androidtv.ui.search.composable.SearchTextInput
 import org.jellyfin.androidtv.ui.search.composable.SearchVoiceInput
 import org.jellyfin.androidtv.ui.shared.toolbar.MainToolbar
@@ -39,6 +41,8 @@ import org.koin.compose.koinInject
 import org.koin.core.parameter.parametersOf
 
 class SearchFragment : Fragment() {
+	private val imagePreloader by lazy { CardImagePreloader(requireContext(), this) }
+
 	companion object {
 		const val EXTRA_QUERY = "query"
 	}
@@ -136,7 +140,10 @@ class SearchFragment : Fragment() {
 						rowsSupportFragment = fragment
 						fragment.adapter = searchFragmentDelegate.rowsAdapter
 						fragment.onItemViewClickedListener = searchFragmentDelegate.onItemViewClickedListener
-						fragment.onItemViewSelectedListener = searchFragmentDelegate.onItemViewSelectedListener
+						fragment.onItemViewSelectedListener = OnItemViewSelectedListener { itemViewHolder, item, rowViewHolder, row ->
+							searchFragmentDelegate.onItemViewSelectedListener.onItemSelected(itemViewHolder, item, rowViewHolder, row)
+							imagePreloader.preloadAroundRow(searchFragmentDelegate.rowsAdapter, row, item)
+						}
 					}
 				)
 			}

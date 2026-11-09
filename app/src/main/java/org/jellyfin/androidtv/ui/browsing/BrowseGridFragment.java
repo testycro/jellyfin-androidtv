@@ -52,6 +52,8 @@ import org.jellyfin.androidtv.ui.itemhandling.ItemRowAdapter;
 import org.jellyfin.androidtv.ui.itemhandling.ItemRowAdapterHelperKt;
 import org.jellyfin.androidtv.ui.navigation.ActivityDestinations;
 import org.jellyfin.androidtv.ui.navigation.NavigationRepository;
+import org.jellyfin.androidtv.ui.presentation.BaseGridViewExtensionsKt;
+import org.jellyfin.androidtv.ui.presentation.CardImagePreloader;
 import org.jellyfin.androidtv.ui.presentation.CardPresenter;
 import org.jellyfin.androidtv.ui.presentation.HorizontalGridPresenter;
 import org.jellyfin.androidtv.util.CoroutineUtils;
@@ -114,6 +116,13 @@ public class BrowseGridFragment extends Fragment implements View.OnKeyListener {
     private int mGridPaddingTop = 0;
 
     private final Lazy<BackgroundService> backgroundService = inject(BackgroundService.class);
+
+    private CardImagePreloader imagePreloader = null;
+
+    private CardImagePreloader getImagePreloader() {
+        if (imagePreloader == null) imagePreloader = new CardImagePreloader(requireContext(), this);
+        return imagePreloader;
+    }
     private final Lazy<PreferencesRepository> preferencesRepository = inject(PreferencesRepository.class);
     private final Lazy<UserViewsRepository> userViewsRepository = inject(UserViewsRepository.class);
     private final Lazy<CustomMessageRepository> customMessageRepository = inject(CustomMessageRepository.class);
@@ -231,6 +240,8 @@ public class BrowseGridFragment extends Fragment implements View.OnKeyListener {
         mGridView.setHorizontalSpacing(mGridItemSpacingHorizontal);
         mGridView.setVerticalSpacing(mGridItemSpacingVertical);
         mGridView.setFocusable(true);
+        BaseGridViewExtensionsKt.increaseRowsViewCache(mGridView);
+        BaseGridViewExtensionsKt.enableItemPrefetch(mGridView);
         binding.rowsFragment.removeAllViews();
         binding.rowsFragment.addView(mGridViewHolder.view);
 
@@ -929,9 +940,17 @@ public class BrowseGridFragment extends Fragment implements View.OnKeyListener {
                 binding.infoRow.removeAllViews();
                 mHandler.postDelayed(mDelayedSetItem, VIEW_SELECT_UPDATE_DELAY);
 
-                if (!determiningPosterSize)
+                if (!determiningPosterSize) {
                     mAdapter.loadMoreItemsIfNeeded(mAdapter.indexOf(mCurrentItem));
+                    getImagePreloader().preloadAroundGridItem(mAdapter, item);
+                }
             }
         }
+    }
+
+    @Override
+    public void onPause() {
+        if (imagePreloader != null) imagePreloader.cancel();
+        super.onPause();
     }
 }

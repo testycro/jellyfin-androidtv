@@ -19,9 +19,12 @@ import org.jellyfin.androidtv.data.service.BackgroundService
 import org.jellyfin.androidtv.ui.itemhandling.BaseRowItem
 import org.jellyfin.androidtv.ui.itemhandling.ItemLauncher
 import org.jellyfin.androidtv.ui.itemhandling.ItemRowAdapter
+import org.jellyfin.androidtv.ui.presentation.CardImagePreloader
 import org.jellyfin.androidtv.ui.presentation.CardPresenter
 import org.jellyfin.androidtv.ui.presentation.MutableObjectAdapter
 import org.jellyfin.androidtv.ui.presentation.PositionableListRowPresenter
+import org.jellyfin.androidtv.ui.presentation.enableItemPrefetch
+import org.jellyfin.androidtv.ui.presentation.increaseRowsViewCache
 import org.jellyfin.sdk.model.api.BaseItemDto
 import org.koin.android.ext.android.inject
 
@@ -33,6 +36,7 @@ abstract class BrowseFolderFragment : BrowseSupportFragment(), RowLoader {
 
 	private val backgroundService by inject<BackgroundService>()
 	private val itemLauncher by inject<ItemLauncher>()
+	private val imagePreloader by lazy { CardImagePreloader(requireContext(), this) }
 
 	override fun onCreate(savedInstanceState: Bundle?) {
 		super.onCreate(savedInstanceState)
@@ -63,6 +67,7 @@ abstract class BrowseFolderFragment : BrowseSupportFragment(), RowLoader {
 				if (adapter is ItemRowAdapter) adapter.loadMoreItemsIfNeeded(adapter.indexOf(item))
 
 				backgroundService.setBackground(item.baseItem)
+				imagePreloader.preloadAroundRow(this@BrowseFolderFragment.adapter, row, item)
 			}
 		}
 
@@ -72,6 +77,18 @@ abstract class BrowseFolderFragment : BrowseSupportFragment(), RowLoader {
 				setupQueries(this@BrowseFolderFragment)
 			}
 		}
+	}
+
+	override fun onResume() {
+		super.onResume()
+
+		rowsSupportFragment?.verticalGridView?.increaseRowsViewCache()
+		rowsSupportFragment?.verticalGridView?.enableItemPrefetch()
+	}
+
+	override fun onPause() {
+		imagePreloader.cancel()
+		super.onPause()
 	}
 
 	protected abstract suspend fun setupQueries(rowLoader: RowLoader)

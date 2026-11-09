@@ -46,6 +46,8 @@ import org.jellyfin.androidtv.ui.itemhandling.ItemRowAdapter;
 import org.jellyfin.androidtv.ui.itemhandling.ItemRowAdapterHelperKt;
 import org.jellyfin.androidtv.ui.navigation.Destinations;
 import org.jellyfin.androidtv.ui.navigation.NavigationRepository;
+import org.jellyfin.androidtv.ui.presentation.BaseGridViewExtensionsKt;
+import org.jellyfin.androidtv.ui.presentation.CardImagePreloader;
 import org.jellyfin.androidtv.ui.presentation.CardPresenter;
 import org.jellyfin.androidtv.ui.presentation.GridButtonPresenter;
 import org.jellyfin.androidtv.ui.presentation.MutableObjectAdapter;
@@ -97,6 +99,13 @@ public class EnhancedBrowseFragment extends Fragment implements RowLoader, View.
     protected ListRow mCurrentRow;
 
     private Lazy<BackgroundService> backgroundService = inject(BackgroundService.class);
+
+    private CardImagePreloader imagePreloader = null;
+
+    private CardImagePreloader getImagePreloader() {
+        if (imagePreloader == null) imagePreloader = new CardImagePreloader(requireContext(), this);
+        return imagePreloader;
+    }
     private Lazy<MarkdownRenderer> markdownRenderer = inject(MarkdownRenderer.class);
     private final Lazy<CustomMessageRepository> customMessageRepository = inject(CustomMessageRepository.class);
     private final Lazy<NavigationRepository> navigationRepository = inject(NavigationRepository.class);
@@ -187,6 +196,11 @@ public class EnhancedBrowseFragment extends Fragment implements RowLoader, View.
     @Override
     public void onResume() {
         super.onResume();
+
+        if (mRowsFragment != null && mRowsFragment.getVerticalGridView() != null) {
+            BaseGridViewExtensionsKt.increaseRowsViewCache(mRowsFragment.getVerticalGridView());
+            BaseGridViewExtensionsKt.enableItemPrefetch(mRowsFragment.getVerticalGridView());
+        }
 
         // React to deletion
         DataRefreshService dataRefreshService = KoinJavaComponent.<DataRefreshService>get(DataRefreshService.class);
@@ -477,6 +491,13 @@ public class EnhancedBrowseFragment extends Fragment implements RowLoader, View.
             adapter.loadMoreItemsIfNeeded(adapter.indexOf(rowItem));
 
             backgroundService.getValue().setBackground(rowItem.getBaseItem());
+            getImagePreloader().preloadAroundRow(mRowsAdapter, row, item);
         }
+    }
+
+    @Override
+    public void onPause() {
+        if (imagePreloader != null) imagePreloader.cancel();
+        super.onPause();
     }
 }

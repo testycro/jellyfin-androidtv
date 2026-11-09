@@ -1,5 +1,6 @@
 package org.jellyfin.androidtv.ui.presentation;
 
+import android.content.Context;
 import android.content.res.Resources;
 import android.graphics.drawable.Drawable;
 import android.util.TypedValue;
@@ -22,6 +23,7 @@ import org.jellyfin.androidtv.ui.card.LegacyImageCardView;
 import org.jellyfin.androidtv.ui.itemhandling.AudioQueueBaseRowItem;
 import org.jellyfin.androidtv.ui.itemhandling.BaseItemDtoBaseRowItem;
 import org.jellyfin.androidtv.ui.itemhandling.BaseRowItem;
+import org.jellyfin.androidtv.ui.itemhandling.BaseRowType;
 import org.jellyfin.androidtv.util.ImageHelper;
 import org.jellyfin.androidtv.util.Utils;
 import org.jellyfin.androidtv.util.apiclient.JellyfinImage;
@@ -37,6 +39,10 @@ import java.util.Locale;
 import kotlin.Lazy;
 
 public class CardPresenter extends Presenter {
+    // Card heights (dp) of landscape and portrait images when the item doesn't use a static height
+    private static final int LANDSCAPE_HEIGHT = 130;
+    private static final int PORTRAIT_HEIGHT = 150;
+
     private int mStaticHeight = 150;
     private ImageType mImageType = ImageType.POSTER;
     private double aspect;
@@ -88,7 +94,7 @@ public class CardPresenter extends Presenter {
         }
 
         public void setItem(BaseRowItem m) {
-            setItem(m, ImageType.POSTER, 130, 150, 150);
+            setItem(m, ImageType.POSTER, LANDSCAPE_HEIGHT, PORTRAIT_HEIGHT, 150);
         }
 
         public void setItem(BaseRowItem m, ImageType imageType, int lHeight, int pHeight, int sHeight) {
@@ -100,22 +106,12 @@ public class CardPresenter extends Presenter {
                     org.jellyfin.sdk.model.api.BaseItemDto itemDto = mItem.getBaseItem();
                     boolean showWatched = true;
                     boolean showProgress = false;
-                    if (imageType.equals(ImageType.BANNER)) {
-                        aspect = ImageHelper.ASPECT_RATIO_BANNER;
-                    } else if (imageType.equals(ImageType.THUMB)) {
-                        aspect = ImageHelper.ASPECT_RATIO_16_9;
-                    } else {
-                        aspect = imageHelper.getValue().getImageAspectRatio(itemDto, m.getPreferParentThumb());
-                    }
+                    aspect = getBaseItemAspect(m, imageType);
+                    isUserView = isUserViewItem(itemDto);
                     switch (itemDto.getType()) {
                         case AUDIO:
                         case MUSIC_ALBUM:
                             mDefaultCardImage = ContextCompat.getDrawable(mCardView.getContext(), R.drawable.tile_audio);
-                            if (isUniformAspect) {
-                                aspect = 1.0;
-                            } else if (aspect < .8) {
-                                aspect = 1.0;
-                            }
                             showWatched = false;
                             break;
                         case PERSON:
@@ -123,26 +119,17 @@ public class CardPresenter extends Presenter {
                             break;
                         case MUSIC_ARTIST:
                             mDefaultCardImage = ContextCompat.getDrawable(mCardView.getContext(), R.drawable.tile_port_person);
-                            if (isUniformAspect) {
-                                aspect = 1.0;
-                            } else if (aspect < .8) {
-                                aspect = 1.0;
-                            }
                             showWatched = false;
                             break;
                         case SEASON:
                         case SERIES:
                             mDefaultCardImage = ContextCompat.getDrawable(mCardView.getContext(), R.drawable.tile_port_tv);
-                            if (imageType.equals(ImageType.POSTER))
-                                aspect = ImageHelper.ASPECT_RATIO_2_3;
                             break;
                         case EPISODE:
                             if (m instanceof BaseItemDtoBaseRowItem && ((BaseItemDtoBaseRowItem) m).getPreferSeriesPoster()) {
                                 mDefaultCardImage = ContextCompat.getDrawable(mCardView.getContext(), R.drawable.tile_port_tv);
-                                aspect = ImageHelper.ASPECT_RATIO_2_3;
                             } else {
                                 mDefaultCardImage = ContextCompat.getDrawable(mCardView.getContext(), R.drawable.tile_land_tv);
-                                aspect = ImageHelper.ASPECT_RATIO_16_9;
                                 if (itemDto.getLocationType() != null) {
                                     switch (itemDto.getLocationType()) {
                                         case FILE_SYSTEM:
@@ -161,11 +148,7 @@ public class CardPresenter extends Presenter {
                             break;
                         case COLLECTION_FOLDER:
                         case USER_VIEW:
-                            // Force the aspect ratio to 16x9 because the server is returning the wrong value of 1
-                            // When this is fixed we should still force 16x9 if an image is not set to be consistent
-                            aspect = ImageHelper.ASPECT_RATIO_16_9;
                             mDefaultCardImage = ContextCompat.getDrawable(mCardView.getContext(), R.drawable.tile_land_folder);
-                            isUserView = true;
                             break;
                         case FOLDER:
                         case GENRE:
@@ -185,20 +168,13 @@ public class CardPresenter extends Presenter {
                         case VIDEO:
                             mDefaultCardImage = ContextCompat.getDrawable(mCardView.getContext(), R.drawable.tile_port_video);
                             showProgress = true;
-                            if (imageType.equals(ImageType.POSTER))
-                                aspect = ImageHelper.ASPECT_RATIO_2_3;
                             break;
                         default:
                             mDefaultCardImage = ContextCompat.getDrawable(mCardView.getContext(), R.drawable.tile_port_video);
-                            if (imageType.equals(ImageType.POSTER))
-                                aspect = ImageHelper.ASPECT_RATIO_2_3;
                             break;
                     }
-                    cardHeight = !m.getStaticHeight() ? (aspect > 1 ? lHeight : pHeight) : sHeight;
-                    cardWidth = (int) (aspect * cardHeight);
-                    if (cardWidth < 5) {
-                        cardWidth = 115;  //Guard against zero size images causing picasso to barf
-                    }
+                    cardHeight = getBaseItemCardHeight(m, aspect, lHeight, pHeight, sHeight);
+                    cardWidth = getBaseItemCardWidth(aspect, cardHeight);
                     if (Utils.isTrue(itemDto.isPlaceHolder())) {
                         mCardView.setBanner(R.drawable.banner_edge_disc);
                     }
@@ -342,7 +318,7 @@ public class CardPresenter extends Presenter {
         BaseRowItem rowItem = (BaseRowItem) item;
 
         ViewHolder holder = (ViewHolder) viewHolder;
-        holder.setItem(rowItem, mImageType, 130, 150, mStaticHeight);
+        holder.setItem(rowItem, mImageType, LANDSCAPE_HEIGHT, PORTRAIT_HEIGHT, mStaticHeight);
 
         holder.mCardView.setTitleText(rowItem.getCardName(holder.mCardView.getContext()));
         holder.mCardView.setContentText(rowItem.getSubText(holder.mCardView.getContext()));
@@ -371,37 +347,132 @@ public class CardPresenter extends Presenter {
             }
         }
 
-        JellyfinImage image = null;
-        if (rowItem.getBaseItem() != null) {
-            if (aspect == ImageHelper.ASPECT_RATIO_BANNER) {
-                image = JellyfinImageKt.getItemImages(rowItem.getBaseItem()).get(org.jellyfin.sdk.model.api.ImageType.BANNER);
-            } else if (aspect == ImageHelper.ASPECT_RATIO_2_3 && rowItem.getBaseItem().getType() == BaseItemKind.EPISODE && rowItem instanceof BaseItemDtoBaseRowItem && ((BaseItemDtoBaseRowItem) rowItem).getPreferSeriesPoster()) {
-                image = JellyfinImageKt.getSeriesPrimaryImage(rowItem.getBaseItem());
-            } else if (aspect == ImageHelper.ASPECT_RATIO_16_9 && !isUserView && (rowItem.getBaseItem().getType() != BaseItemKind.EPISODE || !rowItem.getBaseItem().getImageTags().containsKey(org.jellyfin.sdk.model.api.ImageType.PRIMARY) || (rowItem.getPreferParentThumb() && rowItem.getBaseItem().getParentThumbImageTag() != null))) {
-                if (rowItem.getPreferParentThumb() || !rowItem.getBaseItem().getImageTags().containsKey(org.jellyfin.sdk.model.api.ImageType.PRIMARY)) {
-                    image = JellyfinImageKt.getParentImages(rowItem.getBaseItem()).get(org.jellyfin.sdk.model.api.ImageType.THUMB);
-                } else {
-                    image = JellyfinImageKt.getItemImages(rowItem.getBaseItem()).get(org.jellyfin.sdk.model.api.ImageType.THUMB);
-                }
-            } else {
-                image = JellyfinImageKt.getItemImages(rowItem.getBaseItem()).get(org.jellyfin.sdk.model.api.ImageType.PRIMARY);
-            }
-        }
-
-        int fillWidth = Math.round(holder.getCardWidth() * holder.mCardView.getResources().getDisplayMetrics().density);
-        int fillHeight = Math.round(holder.getCardHeight() * holder.mCardView.getResources().getDisplayMetrics().density);
-
-        final String imageUrl;
-        final String blurHash;
-        if (image == null) {
-            imageUrl = rowItem.getImageUrl(holder.mCardView.getContext(), imageHelper.getValue(), mImageType, fillWidth, fillHeight);
-            blurHash = null;
-        } else {
-            imageUrl = imageHelper.getValue().getImageUrl(image, fillWidth, fillHeight);
-            blurHash = image.getBlurHash();
-        }
+        JellyfinImage image = getCardImage(rowItem, aspect, isUserView);
+        String imageUrl = getCardImageUrl(holder.mCardView.getContext(), rowItem, image, holder.getCardWidth(), holder.getCardHeight());
+        String blurHash = image == null ? null : image.getBlurHash();
 
         holder.updateCardViewImage(imageUrl, blurHash);
+    }
+
+    /**
+     * Url of the image the card of {@code item} shows, built exactly like the card builds it so a preloaded image is a
+     * memory cache hit when the card is bound. Only cards of base items are supported, null is returned for others.
+     */
+    @Nullable
+    public String getImageUrl(Context context, Object item) {
+        if (!(item instanceof BaseRowItem)) return null;
+        BaseRowItem rowItem = (BaseRowItem) item;
+        if (rowItem.getBaseRowType() != BaseRowType.BaseItem || rowItem.getBaseItem() == null) return null;
+
+        double itemAspect = getBaseItemAspect(rowItem, mImageType);
+        int cardHeight = getBaseItemCardHeight(rowItem, itemAspect, LANDSCAPE_HEIGHT, PORTRAIT_HEIGHT, mStaticHeight);
+        int cardWidth = getBaseItemCardWidth(itemAspect, cardHeight);
+        JellyfinImage image = getCardImage(rowItem, itemAspect, isUserViewItem(rowItem.getBaseItem()));
+
+        return getCardImageUrl(context, rowItem, image, cardWidth, cardHeight);
+    }
+
+    /**
+     * Aspect ratio of the image of a card showing a base item.
+     */
+    private double getBaseItemAspect(BaseRowItem m, ImageType imageType) {
+        BaseItemDto itemDto = m.getBaseItem();
+        double itemAspect;
+        if (imageType.equals(ImageType.BANNER)) {
+            itemAspect = ImageHelper.ASPECT_RATIO_BANNER;
+        } else if (imageType.equals(ImageType.THUMB)) {
+            itemAspect = ImageHelper.ASPECT_RATIO_16_9;
+        } else {
+            itemAspect = imageHelper.getValue().getImageAspectRatio(itemDto, m.getPreferParentThumb());
+        }
+
+        switch (itemDto.getType()) {
+            case AUDIO:
+            case MUSIC_ALBUM:
+            case MUSIC_ARTIST:
+                if (isUniformAspect || itemAspect < .8) itemAspect = 1.0;
+                break;
+            case SEASON:
+            case SERIES:
+            case MOVIE:
+            case VIDEO:
+                if (imageType.equals(ImageType.POSTER)) itemAspect = ImageHelper.ASPECT_RATIO_2_3;
+                break;
+            case EPISODE:
+                if (m instanceof BaseItemDtoBaseRowItem && ((BaseItemDtoBaseRowItem) m).getPreferSeriesPoster()) {
+                    itemAspect = ImageHelper.ASPECT_RATIO_2_3;
+                } else {
+                    itemAspect = ImageHelper.ASPECT_RATIO_16_9;
+                }
+                break;
+            case COLLECTION_FOLDER:
+            case USER_VIEW:
+                // Force the aspect ratio to 16x9 because the server is returning the wrong value of 1
+                // When this is fixed we should still force 16x9 if an image is not set to be consistent
+                itemAspect = ImageHelper.ASPECT_RATIO_16_9;
+                break;
+            case PERSON:
+            case FOLDER:
+            case GENRE:
+            case MUSIC_GENRE:
+            case PHOTO:
+            case PHOTO_ALBUM:
+            case PLAYLIST:
+                break;
+            default:
+                if (imageType.equals(ImageType.POSTER)) itemAspect = ImageHelper.ASPECT_RATIO_2_3;
+                break;
+        }
+
+        return itemAspect;
+    }
+
+    private static boolean isUserViewItem(BaseItemDto itemDto) {
+        return itemDto.getType() == BaseItemKind.COLLECTION_FOLDER || itemDto.getType() == BaseItemKind.USER_VIEW;
+    }
+
+    private static int getBaseItemCardHeight(BaseRowItem m, double itemAspect, int lHeight, int pHeight, int sHeight) {
+        return !m.getStaticHeight() ? (itemAspect > 1 ? lHeight : pHeight) : sHeight;
+    }
+
+    private static int getBaseItemCardWidth(double itemAspect, int cardHeight) {
+        int cardWidth = (int) (itemAspect * cardHeight);
+        if (cardWidth < 5) {
+            cardWidth = 115;  //Guard against zero size images causing picasso to barf
+        }
+        return cardWidth;
+    }
+
+    @Nullable
+    private static JellyfinImage getCardImage(BaseRowItem rowItem, double itemAspect, boolean userView) {
+        if (rowItem.getBaseItem() == null) return null;
+
+        if (itemAspect == ImageHelper.ASPECT_RATIO_BANNER) {
+            return JellyfinImageKt.getItemImages(rowItem.getBaseItem()).get(org.jellyfin.sdk.model.api.ImageType.BANNER);
+        } else if (itemAspect == ImageHelper.ASPECT_RATIO_2_3 && rowItem.getBaseItem().getType() == BaseItemKind.EPISODE && rowItem instanceof BaseItemDtoBaseRowItem && ((BaseItemDtoBaseRowItem) rowItem).getPreferSeriesPoster()) {
+            return JellyfinImageKt.getSeriesPrimaryImage(rowItem.getBaseItem());
+        } else if (itemAspect == ImageHelper.ASPECT_RATIO_16_9 && !userView && (rowItem.getBaseItem().getType() != BaseItemKind.EPISODE || !rowItem.getBaseItem().getImageTags().containsKey(org.jellyfin.sdk.model.api.ImageType.PRIMARY) || (rowItem.getPreferParentThumb() && rowItem.getBaseItem().getParentThumbImageTag() != null))) {
+            if (rowItem.getPreferParentThumb() || !rowItem.getBaseItem().getImageTags().containsKey(org.jellyfin.sdk.model.api.ImageType.PRIMARY)) {
+                return JellyfinImageKt.getParentImages(rowItem.getBaseItem()).get(org.jellyfin.sdk.model.api.ImageType.THUMB);
+            } else {
+                return JellyfinImageKt.getItemImages(rowItem.getBaseItem()).get(org.jellyfin.sdk.model.api.ImageType.THUMB);
+            }
+        } else {
+            return JellyfinImageKt.getItemImages(rowItem.getBaseItem()).get(org.jellyfin.sdk.model.api.ImageType.PRIMARY);
+        }
+    }
+
+    @Nullable
+    private String getCardImageUrl(Context context, BaseRowItem rowItem, @Nullable JellyfinImage image, int cardWidth, int cardHeight) {
+        float density = context.getResources().getDisplayMetrics().density;
+        int fillWidth = Math.round(cardWidth * density);
+        int fillHeight = Math.round(cardHeight * density);
+
+        if (image == null) {
+            return rowItem.getImageUrl(context, imageHelper.getValue(), mImageType, fillWidth, fillHeight);
+        } else {
+            return imageHelper.getValue().getImageUrl(image, fillWidth, fillHeight);
+        }
     }
 
     @Override

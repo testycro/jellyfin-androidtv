@@ -43,6 +43,7 @@
     <string name="lbl_chapters">Chapitres</string>
     <string name="lbl_specials">Épisodes spéciaux</string>
     <string name="lbl_trailers">Bandes-annonces</string>
+    <string name="lbl_trailer_number">Bande-annonce %1$d</string>
     <string name="lbl_items">Éléments</string>
     <string name="lbl_item">Élément</string>
     <string name="lbl_seasons">Saisons</string>
@@ -61,6 +62,14 @@
     <string name="lbl_bracket_unknown">Inconnu</string>
     <string name="lbl_trailer">"Bande-annonce "</string>
     <string name="lbl_play_trailers">Bande-annonce</string>
+    <string name="lbl_play_trailers">Bande annonce</string>
+    <string name="lbl_trailers_search">Rechercher des bandes-annonces (français, puis anglais)</string>
+    <string name="msg_trailers_searching">Recherche des bandes-annonces…</string>
+    <string name="msg_trailers_added">%1$d bande(s)-annonce(s) ajoutée(s) (%2$s)</string>
+    <string name="msg_trailers_none">Aucune nouvelle bande-annonce trouvée</string>
+    <string name="msg_trailers_restored">%1$d bande(s)-annonce(s) supprimée(s) remise(s) dans la liste</string>
+    <string name="msg_trailers_search_failed">Échec de la recherche de bandes-annonces</string>
+    <string name="msg_trailer_hidden">Bande-annonce retirée de la liste (une recherche la remettra)</string>
     <string name="lbl_no">Non</string>
     <string name="lbl_yes">Oui</string>
     <string name="lbl_enter_server_address">Saisir l\'adresse du serveur</string>
