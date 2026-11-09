@@ -62,7 +62,6 @@
     <string name="lbl_bracket_unknown">Inconnu</string>
     <string name="lbl_trailer">"Bande-annonce "</string>
     <string name="lbl_play_trailers">Bande-annonce</string>
-    <string name="lbl_play_trailers">Bande annonce</string>
     <string name="lbl_trailers_search">Rechercher des bandes-annonces (français, puis anglais)</string>
     <string name="msg_trailers_searching">Recherche des bandes-annonces…</string>
     <string name="msg_trailers_added">%1$d bande(s)-annonce(s) ajoutée(s) (%2$s)</string>
