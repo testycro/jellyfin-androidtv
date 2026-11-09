@@ -1,0 +1,85 @@
+name: App / Release (fork)
+
+# Manual build of a signed release APK for the fork.
+# Needs these repository secrets (Settings > Secrets and variables > Actions):
+#   KEYSTORE_B64       base64 of your keystore file
+#   KEYSTORE_PASSWORD  keystore password
+#   KEY_ALIAS          key alias
+#   KEY_PASSWORD       key password
+#
+# The suffix and name inputs make it possible to install several builds of the fork side by side
+# (for example to compare optimizations): every suffix is a separate app on the device.
+
+on:
+  workflow_dispatch:
+    inputs:
+      suffix:
+        description: "Application id suffix (org.jellyfin.androidtv.<suffix>), lowercase letters, digits and _"
+        required: true
+        default: fork
+      name:
+        description: "Application name shown on the device (empty = Jellyfin Fork)"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    name: Release APK
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Validate inputs
+        env:
+          FORK_SUFFIX: ${{ inputs.suffix }}
+          FORK_NAME: ${{ inputs.name }}
+        run: |
+          if ! [[ "$FORK_SUFFIX" =~ ^[a-z][a-z0-9_]*$ ]]; then
+            echo "::error::Invalid suffix '$FORK_SUFFIX': use lowercase letters, digits and _ (starting with a letter)"
+            exit 1
+          fi
+          if ! [[ "$FORK_NAME" =~ ^[A-Za-z0-9\ ._+-]*$ ]]; then
+            echo "::error::Invalid name '$FORK_NAME': use letters, digits, spaces and . _ + -"
+            exit 1
+          fi
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Setup Java
+        uses: actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78 # v6.2.0
+        with:
+          distribution: temurin
+          java-version: 21
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
+      - name: Decode keystore
+        run: echo "${{ secrets.KEYSTORE_B64 }}" | base64 --decode > "$RUNNER_TEMP/keystore.jks"
+      - name: Assemble release APK
+        env:
+          KEYSTORE_FILE: ${{ runner.temp }}/keystore.jks
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          SIGNING_KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          SIGNING_KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          FORK_SUFFIX: ${{ inputs.suffix }}
+          FORK_NAME: ${{ inputs.name }}
+        run: ./gradlew assembleRelease
+      - name: Summary
+        env:
+          FORK_SUFFIX: ${{ inputs.suffix }}
+        run: |
+          {
+            echo "Package: \`org.jellyfin.androidtv.$FORK_SUFFIX\`"
+            echo
+            echo "After installing, compile it ahead of time:"
+            echo
+            echo "\`\`\`"
+            echo "adb shell cmd package compile -m speed -f org.jellyfin.androidtv.$FORK_SUFFIX"
+            echo "\`\`\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload APK
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release-apk-${{ inputs.suffix }}
+          retention-days: 30
+          if-no-files-found: error
+          path: app/build/outputs/apk/release/*.apk
