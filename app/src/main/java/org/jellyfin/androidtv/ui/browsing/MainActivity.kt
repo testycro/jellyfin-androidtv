@@ -69,6 +69,12 @@ class MainActivity : FragmentActivity() {
 		onBackPressedDispatcher.addCallback(this, backPressedCallback)
 		if (savedInstanceState == null && navigationRepository.canGoBack) navigationRepository.reset(clearHistory = true)
 
+		binding = ActivityMainBinding.inflate(layoutInflater)
+		binding.background.setContent { AppBackground() }
+		binding.screensaver.setContent { InAppScreensaver() }
+		setContentView(binding.root)
+
+		// Collected after the content view is set: the first (replayed) action is handled right away and needs the binding.
 		// The actions are collected for the whole life of the activity, not only while it is started. The flow replays its
 		// last action to every new collector, so collecting only while started applied it again each time the activity
 		// came back from stopped (returning from an external app like the one playing a trailer, or the TV waking up): a
@@ -84,11 +90,6 @@ class MainActivity : FragmentActivity() {
 				backPressedCallback.isEnabled = navigationRepository.canGoBack
 				interactionTrackerViewModel.notifyInteraction(canCancel = false, userInitiated = false)
 			}.launchIn(lifecycleScope)
-
-		binding = ActivityMainBinding.inflate(layoutInflater)
-		binding.background.setContent { AppBackground() }
-		binding.screensaver.setContent { InAppScreensaver() }
-		setContentView(binding.root)
 	}
 
 	override fun onResume() {
