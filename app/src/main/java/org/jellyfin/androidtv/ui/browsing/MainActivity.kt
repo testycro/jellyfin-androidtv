@@ -15,6 +15,7 @@ import androidx.lifecycle.lifecycleScope
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
@@ -68,8 +69,16 @@ class MainActivity : FragmentActivity() {
 		onBackPressedDispatcher.addCallback(this, backPressedCallback)
 		if (savedInstanceState == null && navigationRepository.canGoBack) navigationRepository.reset(clearHistory = true)
 
+		// The actions are collected for the whole life of the activity, not only while it is started. The flow replays its
+		// last action to every new collector, so collecting only while started applied it again each time the activity
+		// came back from stopped (returning from an external app like the one playing a trailer, or the TV waking up): a
+		// navigation added a copy of the current screen to the history, a "go back" removed one more screen. The history of
+		// the screens then no longer matched the one of the navigation repository, which decides if the back button is
+		// handled: the app closed on a back press while screens were still left in the history. A restored activity
+		// already has its history back, so the replayed action is skipped in that case.
+		val skipReplayedAction = savedInstanceState != null && navigationRepository.currentAction.replayCache.isNotEmpty()
 		navigationRepository.currentAction
-			.flowWithLifecycle(lifecycle, Lifecycle.State.STARTED)
+			.drop(if (skipReplayedAction) 1 else 0)
 			.onEach { action ->
 				handleNavigationAction(action)
 				backPressedCallback.isEnabled = navigationRepository.canGoBack
