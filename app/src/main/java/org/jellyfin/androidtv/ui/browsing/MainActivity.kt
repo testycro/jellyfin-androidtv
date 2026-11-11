@@ -52,7 +52,10 @@ class MainActivity : FragmentActivity() {
 	override fun onCreate(savedInstanceState: Bundle?) {
 		applyTheme()
 
-		super.onCreate(savedInstanceState)
+		// Without a session (the app was killed in the background and is restored by the system) the user is sent to the
+		// startup activity. Don't restore the fragments in that case: they would be created without a user or server
+		val hasSession = sessionRepository.currentSession.value != null && userRepository.currentUser.value != null
+		super.onCreate(savedInstanceState.takeIf { hasSession })
 
 		if (!validateAuthentication()) return
 

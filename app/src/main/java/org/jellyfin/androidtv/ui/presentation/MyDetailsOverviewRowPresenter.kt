@@ -62,6 +62,14 @@ class MyDetailsOverviewRowPresenter(
 		fun setInfoValue3(text: String?) {
 			binding.infoValue3.text = text
 		}
+
+		/**
+		 * Drop the image of the row. The presenter (and with it this view holder) stays referenced by its fragment
+		 * after the view of the fragment is destroyed, without this the bitmap would stay in memory with it.
+		 */
+		fun releaseImage() {
+			binding.mainImage.setImageDrawable(null)
+		}
 	}
 
 	var viewHolder: ViewHolder? = null

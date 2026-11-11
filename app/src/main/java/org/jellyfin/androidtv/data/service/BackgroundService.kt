@@ -3,6 +3,8 @@ package org.jellyfin.androidtv.data.service
 import android.content.Context
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.ProcessLifecycleOwner
 import coil3.ImageLoader
 import coil3.request.CachePolicy
 import coil3.request.ImageRequest
@@ -11,6 +13,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
@@ -50,15 +53,14 @@ class BackgroundService(
 	// Async
 	private val scope = MainScope()
 	private var loadBackgroundsJob: Job? = null
-	private var updateBackgroundTimerJob: Job? = null
-	private var lastBackgroundTimerUpdate = 0L
+	private var lastBackgroundUpdate = 0L
 
 	// Urls of the backgrounds that are shown or being loaded, used to skip loading the same backdrops again
 	private var loadedUrls = emptySet<String>()
 
 	// Current background data
-	private var _backgrounds = emptyList<ImageBitmap>()
-	private var _currentIndex = 0
+	// Only the bitmap that is shown is kept in memory: the next backdrop of the slideshow is loaded (from the disk
+	// cache) when it is its turn, instead of keeping every backdrop of the item decoded
 	private var _currentBackground = MutableStateFlow<ImageBitmap?>(null)
 	private var _blurBackground = MutableStateFlow(false)
 	private var _enabled = MutableStateFlow(true)
@@ -122,30 +124,50 @@ class BackgroundService(
 		// Cancel current loading job
 		loadBackgroundsJob?.cancel()
 		loadedUrls = backdropUrls
+
+		val urls = backdropUrls.toList()
 		loadBackgroundsJob = scope.launch {
 			// Wait until the selection settles, a new selection cancels this job
 			delay(loadDelay)
 
-			// Show the first backdrop as soon as it is loaded
-			val first = loadBackground(backdropUrls.first())
-			_backgrounds = listOfNotNull(first)
-			_currentIndex = 0
-			update()
+			var index = 0
+			while (isActive) {
+				val background = loadBackground(urls[index])
 
-			// The other backdrops are only needed for the slideshow
-			val others = backdropUrls.drop(1).mapNotNull { url -> loadBackground(url) }
-			if (others.isNotEmpty()) {
-				_backgrounds = _backgrounds + others
-				if (_backgrounds.size > 1) setTimer()
+				// A backdrop of the slideshow that failed to load is skipped, the current one stays
+				if (background != null || index == 0) show(background)
+
+				// The other backdrops are only needed for the slideshow
+				if (urls.size < 2) break
+
+				// Don't load and decode backdrops while they are not visible (app in the background, video playing)
+				do {
+					delay(SLIDESHOW_DURATION)
+				} while (!isAppVisible() || !_enabled.value)
+
+				index = (index + 1) % urls.size
 			}
 		}
+	}
+
+	private fun isAppVisible() = ProcessLifecycleOwner.get().lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)
+
+	/**
+	 * Show [background], waiting for the transition of the previous background to finish first.
+	 */
+	private suspend fun show(background: ImageBitmap?) {
+		val wait = lastBackgroundUpdate + TRANSITION_DURATION.inWholeMilliseconds - Instant.now().toEpochMilli()
+		if (wait > 0) delay(wait)
+
+		lastBackgroundUpdate = Instant.now().toEpochMilli()
+		_currentBackground.value = background
 	}
 
 	private suspend fun loadBackground(url: String): ImageBitmap? = withContext(Dispatchers.IO) {
 		imageLoader.execute(
 			request = ImageRequest.Builder(context)
 				.data(url)
-				// The service keeps its own copy of the backdrops. A backdrop is as big as dozens of posters, keeping it
+				// The service keeps its own copy of the backdrop. A backdrop is as big as dozens of posters, keeping it
 				// in the shared memory cache pushed the posters of the cards out, so they had to be decoded again
 				.memoryCachePolicy(CachePolicy.DISABLED)
 				.build()
@@ -154,15 +176,15 @@ class BackgroundService(
 
 	fun clearBackgrounds() {
 		loadBackgroundsJob?.cancel()
+		loadBackgroundsJob = null
 		loadedUrls = emptySet()
 
 		// Re-enable backgrounds if disabled
 		_enabled.value = true
 
-		if (_backgrounds.isEmpty()) return
+		if (_currentBackground.value == null) return
 
-		_backgrounds = emptyList()
-		update()
+		loadBackgroundsJob = scope.launch { show(null) }
 	}
 
 	/**
@@ -170,34 +192,5 @@ class BackgroundService(
 	 */
 	fun disable() {
 		_enabled.value = false
-	}
-
-	internal fun update() {
-		val now = Instant.now().toEpochMilli()
-		if (lastBackgroundTimerUpdate > now - TRANSITION_DURATION.inWholeMilliseconds)
-			return setTimer((lastBackgroundTimerUpdate - now).milliseconds + TRANSITION_DURATION, false)
-
-		lastBackgroundTimerUpdate = now
-
-		// Get next background to show
-		if (_currentIndex >= _backgrounds.size) _currentIndex = 0
-
-		// Set background
-		_currentBackground.value = _backgrounds.getOrNull(_currentIndex)
-
-		// Set timer for next background
-		if (_backgrounds.size > 1) setTimer()
-		else updateBackgroundTimerJob?.cancel()
-	}
-
-	private fun setTimer(updateDelay: Duration = SLIDESHOW_DURATION, increaseIndex: Boolean = true) {
-		updateBackgroundTimerJob?.cancel()
-		updateBackgroundTimerJob = scope.launch {
-			delay(updateDelay)
-
-			if (increaseIndex) _currentIndex++
-
-			update()
-		}
 	}
 }

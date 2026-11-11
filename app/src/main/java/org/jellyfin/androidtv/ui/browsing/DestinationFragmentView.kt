@@ -40,7 +40,8 @@ private class HistoryEntry(
 			name = Class.forName(parcel.readString()!!) as Class<out Fragment>,
 			arguments = parcel.readBundle(this::class.java.classLoader)!!,
 			fragment = null,
-			savedState = ParcelCompat.readParcelable(parcel, this::class.java.classLoader, Fragment.SavedState::class.java)!!,
+			// Null when the state of the fragment could not be saved
+			savedState = ParcelCompat.readParcelable(parcel, this::class.java.classLoader, Fragment.SavedState::class.java),
 		)
 
 		override fun newArray(size: Int): Array<HistoryEntry?> = arrayOfNulls(size)
@@ -55,6 +56,14 @@ class DestinationFragmentView @JvmOverloads constructor(
 		private const val FRAGMENT_TAG_CONTENT = "content"
 		private const val BUNDLE_SUPER = "super"
 		private const val BUNDLE_HISTORY = "history"
+
+		/**
+		 * Number of screens at the end of the history that stay alive (the current one and the ones before it), next to
+		 * the first screen. Every screen in the history keeps its fragment with all loaded items (and some of its
+		 * views) in memory, so a long chain like movie > actor > movie > similar movie > ... only kept growing.
+		 * Older screens are released and created again when navigating back to them.
+		 */
+		private const val MAX_ALIVE_FRAGMENTS = 5
 	}
 
 	private val fragmentManager by lazy {
@@ -90,6 +99,7 @@ class DestinationFragmentView @JvmOverloads constructor(
 			// Add to the end of the history
 			saveCurrentFragmentState()
 			history.push(entry)
+			releaseOldFragments(transaction)
 		}
 
 		activateHistoryEntry(entry, transaction)
@@ -116,12 +126,35 @@ class DestinationFragmentView @JvmOverloads constructor(
 		return true
 	}
 
+	/**
+	 * Remove the fragments of the screens deep in the history, see [MAX_ALIVE_FRAGMENTS]. Their history entry stays, a
+	 * new fragment is created from its arguments (like the first time it was opened) when navigating back to it.
+	 */
+	private fun releaseOldFragments(transaction: FragmentTransaction) {
+		for (index in 1 until history.size - MAX_ALIVE_FRAGMENTS) {
+			val entry = history[index]
+			val fragment = entry.fragment ?: continue
+
+			transaction.remove(fragment)
+			entry.fragment = null
+			entry.savedState = null
+		}
+	}
+
 	private fun saveCurrentFragmentState() {
-		if (history.isEmpty()) return
+		val entry = history.lastOrNull() ?: return
 
 		// Update the top-most history entry with state from current fragment
-		val fragment = requireNotNull(fragmentManager.findFragmentByTag(FRAGMENT_TAG_CONTENT))
-		history[history.size - 1].savedState = fragmentManager.saveFragmentInstanceState(fragment)
+		// The fragment is missing or not added yet when the transaction showing it is still pending (navigating twice in
+		// a row), there is no state to save in that case
+		val fragment = entry.fragment ?: fragmentManager.findFragmentByTag(FRAGMENT_TAG_CONTENT) ?: return
+		if (!fragment.isAdded) return
+
+		try {
+			entry.savedState = fragmentManager.saveFragmentInstanceState(fragment)
+		} catch (err: IllegalStateException) {
+			Timber.w(err, "Unable to save the state of fragment %s", entry.name.name)
+		}
 	}
 
 	@SuppressLint("CommitTransaction")
@@ -135,12 +168,13 @@ class DestinationFragmentView @JvmOverloads constructor(
 		if (fragment == null) {
 			fragment = fragmentManager.fragmentFactory.instantiate(context.classLoader, entry.name.name).apply {
 				setInitialSavedState(entry.savedState)
+
+				// The arguments never change, they can only be set on a new fragment: setting them on an existing one
+				// throws when the state of the activity is already saved (app in the background)
+				arguments = entry.arguments
 			}
 			entry.fragment = fragment
 		}
-
-		// Update arguments
-		fragment.arguments = entry.arguments
 
 		transaction.apply {
 			// Set options

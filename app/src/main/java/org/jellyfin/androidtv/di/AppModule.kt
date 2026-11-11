@@ -1,12 +1,15 @@
 package org.jellyfin.androidtv.di
 
+import android.app.ActivityManager
 import android.content.Context
 import android.os.Build
+import androidx.core.content.getSystemService
 import androidx.lifecycle.ProcessLifecycleOwner
 import coil3.ImageLoader
 import coil3.annotation.ExperimentalCoilApi
 import coil3.gif.AnimatedImageDecoder
 import coil3.gif.GifDecoder
+import coil3.memory.MemoryCache
 import coil3.network.NetworkFetcher
 import coil3.network.okhttp.OkHttpNetworkFetcherFactory
 import coil3.serviceLoaderEnabled
@@ -66,6 +69,13 @@ import org.jellyfin.sdk.Jellyfin as JellyfinSdk
 
 val defaultDeviceInfo = named("defaultDeviceInfo")
 
+// Limits of the memory cache for images
+private const val IMAGE_CACHE_HEAP_FRACTION = 0.25
+private const val IMAGE_CACHE_HEAP_FRACTION_LOW_RAM = 0.15
+private const val IMAGE_CACHE_MAX_BYTES = 64L * 1024 * 1024
+private const val IMAGE_CACHE_DEFAULT_HEAP_MB = 128
+private const val BYTES_PER_MB = 1024L * 1024
+
 val appModule = module {
 	// SDK
 	single(defaultDeviceInfo) { androidDevice(get()) }
@@ -112,8 +122,27 @@ val appModule = module {
 	}
 
 	single {
-		ImageLoader.Builder(androidContext()).apply {
+		val context = androidContext()
+
+		ImageLoader.Builder(context).apply {
 			serviceLoaderEnabled(false)
+
+			// The default size of the memory cache is a quarter of the heap, which is the large heap for this app: up to
+			// 128 MB of bitmaps on some devices. They are hardware bitmaps, living in graphics memory next to the video
+			// decoder, so on a TV with little memory the system ends up killing the app. Use the normal heap size as
+			// reference and never more than IMAGE_CACHE_MAX_BYTES, which is still a few hundred posters.
+			memoryCache {
+				val activityManager = context.getSystemService<ActivityManager>()
+				val heapBytes = (activityManager?.memoryClass ?: IMAGE_CACHE_DEFAULT_HEAP_MB) * BYTES_PER_MB
+				val fraction = when (activityManager?.isLowRamDevice) {
+					true -> IMAGE_CACHE_HEAP_FRACTION_LOW_RAM
+					else -> IMAGE_CACHE_HEAP_FRACTION
+				}
+
+				MemoryCache.Builder()
+					.maxSizeBytes((heapBytes * fraction).toLong().coerceAtMost(IMAGE_CACHE_MAX_BYTES))
+					.build()
+			}
 			logger(CoilTimberLogger(if (BuildConfig.DEBUG) Logger.Level.Warn else Logger.Level.Error))
 
 			components {

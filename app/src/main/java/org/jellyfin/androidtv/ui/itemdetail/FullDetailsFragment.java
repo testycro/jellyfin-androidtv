@@ -252,6 +252,9 @@ public class FullDetailsFragment extends Fragment implements RecordingIndicatorV
             public void run() {
                 if (!getLifecycle().getCurrentState().isAtLeast(Lifecycle.State.STARTED)) return;
 
+                // The item is still loading (slow server), there is nothing to update yet
+                if (mBaseItem == null || mLastUpdated == null) return;
+
                 Instant lastPlaybackTime = dataRefreshService.getValue().getLastPlayback();
                 Timber.d("current time %s last playback event time %s last refresh time %s", Instant.now().toEpochMilli(), lastPlaybackTime, mLastUpdated.toEpochMilli());
 
@@ -270,7 +273,7 @@ public class FullDetailsFragment extends Fragment implements RecordingIndicatorV
 
                             mBaseItem = item;
                             if (mResumeButton != null) {
-                                boolean resumeVisible = (mBaseItem.getType() == BaseItemKind.SERIES && !mBaseItem.getUserData().getPlayed()) || JavaCompat.getCanResume(mBaseItem);
+                                boolean resumeVisible = (mBaseItem.getType() == BaseItemKind.SERIES && mBaseItem.getUserData() != null && !mBaseItem.getUserData().getPlayed()) || JavaCompat.getCanResume(mBaseItem);
                                 mResumeButton.setVisibility(resumeVisible ? View.VISIBLE : View.GONE);
                                 if (JavaCompat.getCanResume(mBaseItem)) {
                                     mResumeButton.setLabel(getString(R.string.lbl_resume_from, TimeUtils.formatMillis((mBaseItem.getUserData().getPlaybackPositionTicks() / 10000) - getResumePreroll())));
@@ -303,6 +306,18 @@ public class FullDetailsFragment extends Fragment implements RecordingIndicatorV
     public void onStop() {
         super.onStop();
         stopClock();
+    }
+
+    @Override
+    public void onDestroyView() {
+        super.onDestroyView();
+
+        // The fragment stays in memory while it is in the navigation history, don't keep the bitmap of its poster
+        // with it. Everything is created again in onCreateView when navigating back to it.
+        if (mDorPresenter != null && mDorPresenter.getViewHolder() != null) {
+            mDorPresenter.getViewHolder().releaseImage();
+        }
+        mRecordPopup = null;
     }
 
     @Override
@@ -425,7 +440,17 @@ public class FullDetailsFragment extends Fragment implements RecordingIndicatorV
 
         @Override
         protected MyDetailsOverviewRow doInBackground(BaseItemDto... params) {
-            BaseItemDto item = params[0];
+            try {
+                return buildRow(params[0]);
+            } catch (IllegalStateException e) {
+                // requireContext() and getString() throw when the user left this screen before the task started,
+                // which used to crash the app from this background thread
+                Timber.w(e, "Details screen closed while building its overview row");
+                return null;
+            }
+        }
+
+        private MyDetailsOverviewRow buildRow(BaseItemDto item) {
 
             // Figure image size
             Double aspect = imageHelper.getValue().getImageAspectRatio(item, false);
@@ -483,6 +508,7 @@ public class FullDetailsFragment extends Fragment implements RecordingIndicatorV
         protected void onPostExecute(MyDetailsOverviewRow detailsOverviewRow) {
             super.onPostExecute(detailsOverviewRow);
 
+            if (detailsOverviewRow == null) return;
             if (!getLifecycle().getCurrentState().isAtLeast(Lifecycle.State.STARTED)) return;
 
             ClassPresenterSelector ps = new ClassPresenterSelector();

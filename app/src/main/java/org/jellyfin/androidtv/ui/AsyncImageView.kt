@@ -125,13 +125,18 @@ class AsyncImageView @JvmOverloads constructor(
 		return bitmap
 	}
 
-	private companion object {
+	companion object {
+		/**
+		 * Drop the decoded blurhashes, called when the system is low on memory.
+		 */
+		fun clearBlurHashCache() = blurHashCache.evictAll()
+
 		/**
 		 * Decoded blurhashes, so a card that is shown again doesn't decode its blurhash again. They are tiny (32 pixels
 		 * wide), the limit is in bytes.
 		 */
 		@Suppress("MagicNumber")
-		val blurHashCache = object : LruCache<String, Bitmap>(4 * 1024 * 1024) {
+		private val blurHashCache = object : LruCache<String, Bitmap>(4 * 1024 * 1024) {
 			override fun sizeOf(key: String, value: Bitmap): Int = value.byteCount
 		}
 	}

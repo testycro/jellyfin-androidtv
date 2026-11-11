@@ -10,6 +10,8 @@ import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.Toast
+import androidx.lifecycle.DefaultLifecycleObserver
+import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
@@ -72,7 +74,9 @@ fun FullDetailsFragment.showTrailers() {
 	val hasLocalTrailers = (mBaseItem.localTrailerCount ?: 0) > 0
 	val itemId = mBaseItem.id
 
-	lifecycleScope.launch {
+	// Tied to the view: the fragment stays alive (without view or context) while it is in the navigation history, a
+	// coroutine in its own scope would continue there and crash on the first requireContext() or getString()
+	viewLifecycleOwner.lifecycleScope.launch {
 		val localTrailers = if (!hasLocalTrailers) emptyList() else try {
 			withContext(Dispatchers.IO) {
 				api.userLibraryApi.getLocalTrailers(itemId).content
@@ -187,7 +191,7 @@ private fun FullDetailsFragment.showTrailersDialog(
 					searching = true
 					render(focusIndex = Int.MAX_VALUE)
 
-					lifecycleScope.launch {
+					viewLifecycleOwner.lifecycleScope.launch {
 						val message = try {
 							val result = api.searchTrailers(itemId, hiddenTrailers.get(itemId))
 							mBaseItem = mBaseItem.copy(remoteTrailers = result.trailers)
@@ -221,6 +225,14 @@ private fun FullDetailsFragment.showTrailersDialog(
 
 		focusTargets.getOrNull(focusIndex.coerceIn(0, (focusTargets.size - 1).coerceAtLeast(0)))?.requestFocus()
 	}
+
+	// Close the dialog with the screen, a dialog that outlives its screen leaks the window and its buttons would act on
+	// a fragment that has no context anymore
+	viewLifecycleOwner.lifecycle.addObserver(object : DefaultLifecycleObserver {
+		override fun onDestroy(owner: LifecycleOwner) {
+			if (dialog.isShowing) dialog.dismiss()
+		}
+	})
 
 	render()
 	dialog.show()
