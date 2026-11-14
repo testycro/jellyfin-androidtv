@@ -1,6 +1,5 @@
 package org.jellyfin.androidtv.ui.itemdetail
 
-import android.content.ActivityNotFoundException
 import android.view.View
 import android.widget.Toast
 import androidx.core.view.isVisible
@@ -17,7 +16,6 @@ import org.jellyfin.androidtv.ui.navigation.NavigationRepository
 import org.jellyfin.androidtv.util.TimeUtils
 import org.jellyfin.androidtv.util.apiclient.getSeriesOverview
 import org.jellyfin.androidtv.util.popupMenu
-import org.jellyfin.androidtv.util.sdk.TrailerUtils.getExternalTrailerIntent
 import org.jellyfin.androidtv.util.sdk.compat.canResume
 import org.jellyfin.androidtv.util.sdk.compat.copyWithUserData
 import org.jellyfin.androidtv.util.showIfNotEmpty
@@ -84,7 +82,7 @@ fun FullDetailsFragment.showDetailsMenu(
 	}
 
 	if (trailerButton?.isVisible == false) {
-		item(getString(R.string.lbl_play_trailers)) { playTrailers() }
+		item(getString(R.string.lbl_play_trailers)) { showTrailers() }
 	}
 
 	if (favButton?.isVisible == false) {
@@ -151,39 +149,6 @@ fun FullDetailsFragment.togglePlayed() {
 		}
 
 		showMoreButtonIfNeeded()
-	}
-}
-
-fun FullDetailsFragment.playTrailers() {
-	val localTrailerCount = mBaseItem.localTrailerCount ?: 0
-
-	// External trailer
-	if (localTrailerCount < 1) try {
-		val intent = getExternalTrailerIntent(requireContext(), mBaseItem)
-		if (intent != null) startActivity(intent)
-	} catch (exception: ActivityNotFoundException) {
-		Timber.w(exception, "Unable to open external trailer")
-		Toast.makeText(
-			requireContext(),
-			getString(R.string.no_player_message),
-			Toast.LENGTH_LONG
-		).show()
-	} else lifecycleScope.launch {
-		val api by inject<ApiClient>()
-
-		try {
-			val trailers = withContext(Dispatchers.IO) {
-				api.userLibraryApi.getLocalTrailers(mBaseItem.id).content
-			}
-			play(trailers, 0, false)
-		} catch (exception: ApiClientException) {
-			Timber.e(exception, "Error retrieving trailers for playback")
-			Toast.makeText(
-				requireContext(),
-				getString(R.string.msg_video_playback_error),
-				Toast.LENGTH_LONG
-			).show()
-		}
 	}
 }
 

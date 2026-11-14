@@ -855,11 +855,15 @@ public class FullDetailsFragment extends Fragment implements RecordingIndicatorV
             mDetailsOverviewRow.addAction(mVersionsButton);
         }
 
-        if (TrailerUtils.hasPlayableTrailers(requireContext(), mBaseItem)) {
+        // Movies always get the button for administrators: the trailers dialog is where trailers are searched
+        boolean canSearchTrailers = mBaseItem.getType() == BaseItemKind.MOVIE
+                && TrailerUtils.canSearchTrailers(KoinJavaComponent.<UserRepository>get(UserRepository.class).getCurrentUser().getValue());
+
+        if (TrailerUtils.hasPlayableTrailers(requireContext(), mBaseItem) || canSearchTrailers) {
             trailerButton = TextUnderButton.create(requireContext(), R.drawable.ic_trailer, buttonSize, 0, getString(R.string.lbl_play_trailers), new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
-                    FullDetailsFragmentHelperKt.playTrailers(FullDetailsFragment.this);
+                    FullDetailsFragmentTrailersKt.showTrailers(FullDetailsFragment.this);
                 }
             });
 
