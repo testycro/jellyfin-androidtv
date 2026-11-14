@@ -2,7 +2,9 @@ package org.jellyfin.androidtv.ui.composable.item
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
 import androidx.compose.ui.Modifier
@@ -21,7 +23,27 @@ fun ItemPreview(
 	title: (@Composable () -> Unit)? = null,
 	subtitle: (@Composable () -> Unit)? = null,
 	spacing: Dp = Tokens.Space.spaceXs,
+	cardWidth: Dp? = null,
 ) {
+	// When the width of the card is known the layout is a plain column. The measuring layout below composes the card
+	// and the metadata separately, which doubles the composition work of every item
+	if (cardWidth != null) {
+		Column(
+			modifier = modifier.width(cardWidth),
+			verticalArrangement = Arrangement.spacedBy(spacing),
+		) {
+			card()
+
+			ItemPreviewMetadata(
+				title = title,
+				subtitle = subtitle,
+				spacing = spacing,
+				modifier = Modifier.fillMaxWidth(),
+			)
+		}
+		return
+	}
+
 	ItemPreviewLayout(
 		card = card,
 		metadata = {
@@ -42,9 +64,10 @@ private fun ItemPreviewMetadata(
 	title: (@Composable () -> Unit)?,
 	subtitle: (@Composable () -> Unit)?,
 	spacing: Dp,
+	modifier: Modifier = Modifier,
 ) {
 	Column(
-		modifier = Modifier.padding(spacing),
+		modifier = modifier.padding(spacing),
 		verticalArrangement = Arrangement.spacedBy(spacing),
 	) {
 		title?.let { content ->

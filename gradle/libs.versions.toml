@@ -14,6 +14,7 @@ androidx-compose-foundation = "1.12.1"
 androidx-compose-ui = "1.12.1"
 androidx-constraintlayout = "2.2.2"
 androidx-core = "1.19.1"
+androidx-customview-poolingcontainer = "1.1.0"
 androidx-fragment = "1.9.1"
 androidx-leanback = "1.2.0"
 androidx-lifecycle = "2.11.0"
@@ -72,6 +73,7 @@ androidx-compose-ui-tooling = { module = "androidx.compose.ui:ui-tooling", versi
 androidx-compose-ui-graphics = { module = "androidx.compose.ui:ui-graphics", version.ref = "androidx-compose-ui" }
 androidx-constraintlayout = { module = "androidx.constraintlayout:constraintlayout", version.ref = "androidx-constraintlayout" }
 androidx-core = { module = "androidx.core:core-ktx", version.ref = "androidx-core" }
+androidx-customview-poolingcontainer = { module = "androidx.customview:customview-poolingcontainer", version.ref = "androidx-customview-poolingcontainer" }
 androidx-fragment = { module = "androidx.fragment:fragment-ktx", version.ref = "androidx-fragment" }
 androidx-fragment-compose = { module = "androidx.fragment:fragment-compose", version.ref = "androidx-fragment" }
 androidx-leanback-core = { module = "androidx.leanback:leanback", version.ref = "androidx-leanback" }

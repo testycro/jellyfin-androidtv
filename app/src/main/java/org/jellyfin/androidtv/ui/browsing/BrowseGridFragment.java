@@ -50,7 +50,10 @@ import org.jellyfin.androidtv.ui.itemhandling.BaseRowItem;
 import org.jellyfin.androidtv.ui.itemhandling.ItemLauncher;
 import org.jellyfin.androidtv.ui.itemhandling.ItemRowAdapter;
 import org.jellyfin.androidtv.ui.itemhandling.ItemRowAdapterHelperKt;
+import org.jellyfin.androidtv.ui.presentation.CardImagePreloader;
+import org.jellyfin.androidtv.ui.presentation.CardImagePreloaderKt;
 import org.jellyfin.androidtv.ui.presentation.CardPresenter;
+import org.jellyfin.androidtv.ui.presentation.FocusKeepingFrameLayout;
 import org.jellyfin.androidtv.ui.presentation.HorizontalGridPresenter;
 import org.jellyfin.androidtv.util.CoroutineUtils;
 import org.jellyfin.androidtv.util.ImageHelper;
@@ -113,6 +116,13 @@ public class BrowseGridFragment extends Fragment implements View.OnKeyListener {
     private int mGridPaddingTop = 0;
 
     private final Lazy<BackgroundService> backgroundService = inject(BackgroundService.class);
+
+    private CardImagePreloader imagePreloader = null;
+
+    private CardImagePreloader getImagePreloader() {
+        if (imagePreloader == null) imagePreloader = new CardImagePreloader(requireContext(), this);
+        return imagePreloader;
+    }
     private final Lazy<PreferencesRepository> preferencesRepository = inject(PreferencesRepository.class);
     private final Lazy<CustomMessageRepository> customMessageRepository = inject(CustomMessageRepository.class);
     private final Lazy<ItemLauncher> itemLauncher = inject(ItemLauncher.class);
@@ -229,13 +239,24 @@ public class BrowseGridFragment extends Fragment implements View.OnKeyListener {
         } else if (mGridViewHolder instanceof VerticalGridPresenter.ViewHolder) {
             mGridView = ((VerticalGridPresenter.ViewHolder) mGridViewHolder).getGridView();
             mGridView.setGravity(Gravity.CENTER_HORIZONTAL);
+            CardImagePreloaderKt.keepFocusWhenScrollingUp(mGridView, ((VerticalGridPresenter) mGridPresenter).getNumberOfColumns());
             mGridView.setPadding(mGridPaddingLeft, mGridPaddingTop, mGridPaddingLeft, mGridPaddingTop); // prevent initial card cutoffs
         }
         mGridView.setHorizontalSpacing(mGridItemSpacingHorizontal);
         mGridView.setVerticalSpacing(mGridItemSpacingVertical);
         mGridView.setFocusable(true);
+        CardImagePreloaderKt.enablePrefetch(mGridView);
+        CardImagePreloaderKt.increaseCardPool(mGridView);
         binding.rowsFragment.removeAllViews();
-        binding.rowsFragment.addView(mGridViewHolder.view);
+        if (mGridViewHolder instanceof VerticalGridPresenter.ViewHolder) {
+            // Going up quickly, the grid lets the focus go to the toolbar long before its first line is reached
+            int numColumns = ((VerticalGridPresenter) mGridPresenter).getNumberOfColumns();
+            FocusKeepingFrameLayout frame = new FocusKeepingFrameLayout(requireContext(), mGridView, numColumns);
+            frame.addView(mGridViewHolder.view);
+            binding.rowsFragment.addView(frame);
+        } else {
+            binding.rowsFragment.addView(mGridViewHolder.view);
+        }
 
         updateAdapter();
     }
@@ -936,9 +957,17 @@ public class BrowseGridFragment extends Fragment implements View.OnKeyListener {
                 binding.infoRow.removeAllViews();
                 mHandler.postDelayed(mDelayedSetItem, VIEW_SELECT_UPDATE_DELAY);
 
-                if (!determiningPosterSize)
+                if (!determiningPosterSize) {
                     mAdapter.loadMoreItemsIfNeeded(mAdapter.indexOf(mCurrentItem));
+                    getImagePreloader().preloadAroundGridItem(mAdapter, item);
+                }
             }
         }
+    }
+
+    @Override
+    public void onPause() {
+        if (imagePreloader != null) imagePreloader.cancel();
+        super.onPause();
     }
 }

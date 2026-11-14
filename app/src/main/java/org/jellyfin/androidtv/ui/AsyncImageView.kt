@@ -21,9 +21,8 @@ import coil3.transform.CircleCropTransformation
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import org.jellyfin.androidtv.R
-import org.jellyfin.androidtv.util.BlurHashDecoder
+import org.jellyfin.androidtv.util.BlurHashCache
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 import kotlin.math.round
@@ -43,6 +42,7 @@ class AsyncImageView @JvmOverloads constructor(
 	private val styledAttributes = context.obtainStyledAttributes(attrs, R.styleable.AsyncImageView, defStyleAttr, 0)
 	private val imageLoader by inject<ImageLoader>()
 	private var loadJob: Job? = null
+	private val isLowRamDevice by lazy { context.getSystemService<ActivityManager>()?.isLowRamDevice == true }
 
 	/**
 	 * The duration of the crossfade when changing switching the images of the url, blurhash and
@@ -71,17 +71,18 @@ class AsyncImageView @JvmOverloads constructor(
 		// Cancel the previous load if still running
 		loadJob?.cancel()
 
-		loadJob = lifeCycleOwner?.lifecycleScope?.launch(Dispatchers.IO) {
+		// Runs on the main thread right away: when the image is in the memory cache it is shown during this call,
+		// instead of showing the blurhash for a frame first (which looked like the image was loaded again)
+		loadJob = lifeCycleOwner?.lifecycleScope?.launch(Dispatchers.Main.immediate) {
 			var placeholderOrBlurHash = placeholder
 
 			// Only show blurhash if an image is going to be loaded from the network
-			val isLowRamDevice = context.getSystemService<ActivityManager>()?.isLowRamDevice == true
-			if (url != null && blurHash != null && !isLowRamDevice && aspectRatio > 0) withContext(Dispatchers.IO) {
-				val blurHashBitmap = BlurHashDecoder.decode(
-					blurHash,
-					if (aspectRatio > 1) round(blurHashResolution * aspectRatio).toInt() else blurHashResolution,
-					if (aspectRatio >= 1) blurHashResolution else round(blurHashResolution / aspectRatio).toInt(),
-				)
+			if (url != null && blurHash != null && !isLowRamDevice && aspectRatio > 0) {
+				val width = if (aspectRatio > 1) round(blurHashResolution * aspectRatio).toInt() else blurHashResolution
+				val height = if (aspectRatio >= 1) blurHashResolution else round(blurHashResolution / aspectRatio).toInt()
+				// Decoded on the main thread on purpose: a blurhash of 32 pixels decodes in well under a millisecond, while
+				// switching threads delayed the image by at least a frame, also when it was already in the memory cache
+				val blurHashBitmap = BlurHashCache.get(blurHash, width, height)
 				if (blurHashBitmap != null) placeholderOrBlurHash = blurHashBitmap.toDrawable(resources)
 			}
 

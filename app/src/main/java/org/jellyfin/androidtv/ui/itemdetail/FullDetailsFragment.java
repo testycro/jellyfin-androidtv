@@ -62,6 +62,8 @@ import org.jellyfin.androidtv.ui.navigation.Destinations;
 import org.jellyfin.androidtv.ui.navigation.NavigationRepository;
 import org.jellyfin.androidtv.ui.playback.MediaManager;
 import org.jellyfin.androidtv.ui.playback.PlaybackLauncher;
+import org.jellyfin.androidtv.ui.presentation.CardImagePreloader;
+import org.jellyfin.androidtv.ui.presentation.CardImagePreloaderKt;
 import org.jellyfin.androidtv.ui.presentation.CardPresenter;
 import org.jellyfin.androidtv.ui.presentation.CustomListRowPresenter;
 import org.jellyfin.androidtv.ui.presentation.InfoCardPresenter;
@@ -143,6 +145,13 @@ public class FullDetailsFragment extends Fragment implements RecordingIndicatorV
     private final Lazy<UserPreferences> userPreferences = inject(UserPreferences.class);
     private final Lazy<DataRefreshService> dataRefreshService = inject(DataRefreshService.class);
     private final Lazy<BackgroundService> backgroundService = inject(BackgroundService.class);
+
+    private CardImagePreloader imagePreloader = null;
+
+    private CardImagePreloader getImagePreloader() {
+        if (imagePreloader == null) imagePreloader = new CardImagePreloader(requireContext(), this);
+        return imagePreloader;
+    }
     final Lazy<MediaManager> mediaManager = inject(MediaManager.class);
     private final Lazy<MarkdownRenderer> markdownRenderer = inject(MarkdownRenderer.class);
     private final Lazy<CustomMessageRepository> customMessageRepository = inject(CustomMessageRepository.class);
@@ -227,6 +236,10 @@ public class FullDetailsFragment extends Fragment implements RecordingIndicatorV
     public void onResume() {
         super.onResume();
 
+        if (mRowsFragment != null && mRowsFragment.getVerticalGridView() != null) {
+            CardImagePreloaderKt.enablePrefetch(mRowsFragment.getVerticalGridView());
+        }
+
         ClockBehavior clockBehavior = userPreferences.getValue().get(UserPreferences.Companion.getClockBehavior());
         if (clockBehavior == ClockBehavior.ALWAYS || clockBehavior == ClockBehavior.IN_MENUS) {
             startClock();
@@ -282,6 +295,7 @@ public class FullDetailsFragment extends Fragment implements RecordingIndicatorV
     public void onPause() {
         super.onPause();
         stopClock();
+        if (imagePreloader != null) imagePreloader.cancel();
     }
 
     @Override
@@ -1206,6 +1220,7 @@ public class FullDetailsFragment extends Fragment implements RecordingIndicatorV
                 mCurrentItem = null;
             } else {
                 mCurrentItem = (BaseRowItem) item;
+                getImagePreloader().preloadAroundRow(mRowsAdapter, row, item);
             }
         }
     }

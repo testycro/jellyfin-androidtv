@@ -111,7 +111,9 @@ class ByGenreFragment : BrowseFolderFragment() {
 				genres = setOf(genre.name.orEmpty()),
 				filters = if (unwatchedOnly) setOf(ItemFilter.IS_UNPLAYED) else null,
 				recursive = true,
-				fields = ItemRepository.itemFields,
+				// Light fields like the home rows: the cards don't need media sources, streams, chapters or trickplay
+				// and the full item is loaded when it is opened
+				fields = ItemRepository.browseFields,
 			)
 			genreRows.add(BrowseRowDef(genre.name, itemsRequest, 40))
 		}

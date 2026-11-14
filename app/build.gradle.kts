@@ -152,6 +152,7 @@ dependencies {
 	implementation(libs.bundles.androidx.lifecycle)
 	implementation(libs.androidx.window)
 	implementation(libs.androidx.cardview)
+	implementation(libs.androidx.customview.poolingcontainer)
 	implementation(libs.androidx.startup)
 	implementation(libs.bundles.androidx.compose)
 	implementation(libs.accompanist.permissions)
