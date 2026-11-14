@@ -10,7 +10,18 @@
             android:layout_width="wrap_content"
             android:layout_height="60dp"
             android:layout_gravity="center_vertical|end"
-            android:layout_toStartOf="@id/toolbar_actions" />
+            android:layout_toStartOf="@id/title_actions" />
+
+        <!-- Optional extra actions, empty (and gone) unless a fragment adds buttons to it -->
+        <LinearLayout
+            android:id="@+id/title_actions"
+            android:layout_width="wrap_content"
+            android:layout_height="60dp"
+            android:layout_alignTop="@id/title_text"
+            android:layout_toStartOf="@id/toolbar_actions"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:visibility="gone" />
 
         <androidx.leanback.widget.SearchOrbView
             android:id="@+id/title_orb"

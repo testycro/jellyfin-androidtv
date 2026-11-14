@@ -5,6 +5,7 @@ import android.graphics.Rect
 import android.util.AttributeSet
 import android.view.LayoutInflater
 import android.view.View
+import android.view.ViewGroup
 import android.widget.RelativeLayout
 import androidx.core.view.isVisible
 import androidx.leanback.widget.TitleViewAdapter
@@ -26,6 +27,12 @@ class TitleView @JvmOverloads constructor(
 
 		override fun getSearchAffordanceView(): View = binding.titleOrb
 	}
+
+	/**
+	 * Container shown next to the clock/home button. Hidden as long as it has no children,
+	 * fragments can add their own action buttons to it.
+	 */
+	val actionsContainer: ViewGroup get() = binding.titleActions
 
 	override fun getTitleViewAdapter() = titleViewAdapter
 

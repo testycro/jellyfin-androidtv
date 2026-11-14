@@ -27,6 +27,9 @@ class LibraryPreferences(
 		val filterFavoritesOnly = booleanPreference("FilterFavoritesOnly", false)
 		val filterUnwatchedOnly = booleanPreference("FilterUnwatchedOnly", false)
 
+		// Unwatched filter of the "By genre" browsing screen (separate from the grid filter)
+		val filterUnwatchedOnlyByGenre = booleanPreference("FilterUnwatchedOnlyByGenre", false)
+
 		// Item sorting
 		val sortBy = enumPreference("SortBy", ItemSortBy.SORT_NAME)
 		val sortOrder = enumPreference("SortOrder", SortOrder.ASCENDING)
