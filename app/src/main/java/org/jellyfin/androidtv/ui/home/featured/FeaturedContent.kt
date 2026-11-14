@@ -58,6 +58,10 @@ private const val TICKS_PER_MINUTE = 600_000_000L
 
 internal val FeaturedCornerRadius = 12.dp
 
+// Discreet focus outline: thin, light grey and semi-transparent
+private val FeaturedFocusBorderWidth = 1.dp
+private val FeaturedFocusBorderColor = Color(0xFFBDBDBD).copy(alpha = 0.5f)
+
 /**
  * What the Featured Content Bar shows, changed by [FeaturedContentView].
  */
@@ -185,7 +189,7 @@ internal fun FeaturedOverlay(
 			Box(
 				Modifier
 					.fillMaxSize()
-					.border(3.dp, Color.White, RoundedCornerShape(FeaturedCornerRadius))
+					.border(FeaturedFocusBorderWidth, FeaturedFocusBorderColor, RoundedCornerShape(FeaturedCornerRadius))
 			)
 		}
 	}
