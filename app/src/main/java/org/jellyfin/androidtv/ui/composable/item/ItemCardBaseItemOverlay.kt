@@ -15,6 +15,8 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.unit.dp
@@ -23,7 +25,7 @@ import org.jellyfin.androidtv.preference.UserPreferences
 import org.jellyfin.androidtv.preference.constant.WatchedIndicatorBehavior
 import org.jellyfin.androidtv.ui.base.Badge
 import org.jellyfin.androidtv.ui.base.Icon
-import org.jellyfin.androidtv.ui.base.Seekbar
+import org.jellyfin.androidtv.ui.base.JellyfinTheme
 import org.jellyfin.androidtv.ui.base.Text
 import org.jellyfin.androidtv.ui.composable.rememberPlayerProgress
 import org.jellyfin.androidtv.ui.composable.rememberQueueEntry
@@ -56,14 +58,29 @@ fun ItemCardBaseItemOverlay(
 		modifier = Modifier.align(Alignment.TopEnd)
 	)
 
-	Column(
+	BottomContent(
+		item = item,
+		footer = footer,
 		modifier = Modifier.align(Alignment.BottomCenter),
+	)
+}
+
+@Composable
+private fun BottomContent(
+	item: BaseItemDto,
+	footer: (@Composable () -> Unit)?,
+	modifier: Modifier = Modifier,
+) {
+	val playedPercentage = rememberPlayedPercentage(item)
+
+	// Most cards have no progress and no footer, don't add an empty layout to them
+	if (playedPercentage == null && footer == null) return
+
+	Column(
+		modifier = modifier,
 		verticalArrangement = Arrangement.spacedBy(Tokens.Space.spaceXs)
 	) {
-		ProgressIndicator(
-			item = item,
-		)
-
+		if (playedPercentage != null) ProgressIndicator(progress = playedPercentage)
 		if (footer != null) footer()
 	}
 }
@@ -77,6 +94,9 @@ private fun StateIndicator(
 	val isFavorited = item.userData?.isFavorite == true
 	val isRecording = item.timerId?.takeIf { item.type == BaseItemKind.LIVE_TV_PROGRAM || item.type == BaseItemKind.PROGRAM } != null
 	val isRecordingActive = item.seriesTimerId != null && isRecording
+
+	// Most cards have no state to show, don't add an empty layout to them
+	if (!isRecording && !isFavorited) return
 
 	Column(
 		modifier = modifier,
@@ -147,31 +167,71 @@ private fun WatchIndicator(
 // Media types that need to show a user progress bar (based on playedPercentage in userData)
 private val progressMediaTypes = setOf(MediaType.VIDEO, MediaType.BOOK)
 
+/**
+ * Progress of [item] while it is the item that is playing, null when it isn't.
+ */
 @Composable
-private fun ProgressIndicator(
-	item: BaseItemDto,
-	modifier: Modifier = Modifier,
-) {
+private fun rememberPlayingProgress(item: BaseItemDto): Float? {
 	val playbackManager = koinInject<PlaybackManager>()
 	val playState by playbackManager.state.playState.collectAsState()
 	val currentQueueEntry by rememberQueueEntry(playbackManager)
 
-	val playedPercentage = when {
+	return when {
 		playState == PlayState.PLAYING && currentQueueEntry?.baseItem?.id == item.id -> rememberPlayerProgress(playbackManager).value
-		item.mediaType in progressMediaTypes -> item.userData?.playedPercentage?.toFloat()?.div(100f)?.coerceIn(0f, 1f)
+		else -> null
+	}
+}
 
+/**
+ * The progress to show for [item], null when there is none.
+ */
+@Composable
+private fun rememberPlayedPercentage(item: BaseItemDto): Float? {
+	val savedProgress = when (item.mediaType) {
+		in progressMediaTypes -> item.userData?.playedPercentage?.toFloat()?.div(100f)?.coerceIn(0f, 1f)
 		else -> null
 	}
 
-	if (playedPercentage != null) {
-		Box(modifier = modifier.padding(Tokens.Space.spaceXs)) {
-			Seekbar(
-				progress = playedPercentage,
-				enabled = false,
-				modifier = Modifier
-					.fillMaxWidth()
-					.height(4.dp)
-			)
-		}
+	// Following the playback state costs two flow collectors for every card on screen. Only audio items (tracks in a
+	// list) show the live progress while they play, the other items show their saved progress
+	return when (item.mediaType) {
+		MediaType.AUDIO -> rememberPlayingProgress(item) ?: savedProgress
+		else -> savedProgress
 	}
+}
+
+/**
+ * The progress bar of a card. It looks like the Seekbar but is only drawn: a Seekbar also handles focus, keys and an
+ * animated knob, which is a lot to create for every card that is partly watched.
+ */
+@Composable
+private fun ProgressIndicator(
+	progress: Float,
+	modifier: Modifier = Modifier,
+) {
+	val backgroundColor = JellyfinTheme.colorScheme.rangeControlBackground
+	val progressColor = JellyfinTheme.colorScheme.rangeControlFill
+
+	Box(
+		modifier = modifier
+			.padding(Tokens.Space.spaceXs)
+			.fillMaxWidth()
+			.height(4.dp)
+			.drawBehind {
+				val cornerRadius = CornerRadius(size.minDimension, size.minDimension)
+
+				drawRoundRect(
+					color = backgroundColor,
+					cornerRadius = cornerRadius,
+				)
+
+				if (progress > 0f) {
+					drawRoundRect(
+						color = progressColor,
+						size = size.copy(width = progress * size.width),
+						cornerRadius = cornerRadius,
+					)
+				}
+			}
+	)
 }
