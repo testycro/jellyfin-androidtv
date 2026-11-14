@@ -707,4 +707,27 @@
     <string name="truehd">TrueHD</string>
     <string name="eac3_atmos">DD+ Atmos</string>
     <string name="truehd_atmos">TrueHD Atmos</string>
+    <string name="featured_bar">Featured Content Bar</string>
+    <string name="featured_bar_enabled">Show at the top of the home screen</string>
+    <string name="featured_bar_enabled_description">Takes effect the next time the home screen is opened</string>
+    <string name="featured_bar_library">Library</string>
+    <string name="featured_bar_library_all">All libraries</string>
+    <string name="featured_bar_watched">Watched / unwatched</string>
+    <string name="featured_bar_watched_all">Watched and unwatched</string>
+    <string name="featured_bar_watched_unwatched">Unwatched only</string>
+    <string name="featured_bar_watched_watched">Watched only</string>
+    <string name="featured_bar_trailers">Trailers</string>
+    <string name="featured_bar_trailer_autoplay">Play trailers automatically</string>
+    <string name="featured_bar_trailer_autoplay_description">Local trailer first, otherwise the first YouTube trailer that is not removed</string>
+    <string name="featured_bar_trailer_area">Trailer area</string>
+    <string name="featured_bar_trailer_area_full">Whole bar</string>
+    <string name="featured_bar_trailer_area_right_half">Right half</string>
+    <string name="featured_bar_volume">Volume</string>
+    <string name="featured_bar_start_volume">Starting volume</string>
+    <string name="featured_bar_focus_volume">Volume when the bar has the focus</string>
+    <string name="featured_bar_minutes">%1$d min</string>
+    <plurals name="featured_bar_seasons">
+        <item quantity="one">%1$d season</item>
+        <item quantity="other">%1$d seasons</item>
+    </plurals>
 </resources>

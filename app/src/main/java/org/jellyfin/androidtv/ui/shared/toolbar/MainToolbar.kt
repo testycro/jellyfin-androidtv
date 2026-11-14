@@ -5,6 +5,7 @@ import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -53,9 +54,15 @@ enum class MainToolbarActiveButton {
 	None,
 }
 
+/**
+ * @param homeFocusRequester Gives the focus to the home button.
+ * @param focusHomeButton Give the focus to the home button when the toolbar is shown, with [homeFocusRequester].
+ */
 @Composable
 fun MainToolbar(
 	activeButton: MainToolbarActiveButton = MainToolbarActiveButton.None,
+	homeFocusRequester: FocusRequester? = null,
+	focusHomeButton: Boolean = false,
 ) {
 	val userRepository = koinInject<UserRepository>()
 	val api = koinInject<ApiClient>()
@@ -67,6 +74,8 @@ fun MainToolbar(
 	MainToolbar(
 		userImage = userImage,
 		activeButton = activeButton,
+		homeFocusRequester = homeFocusRequester,
+		focusHomeButton = focusHomeButton,
 	)
 }
 
@@ -74,6 +83,8 @@ fun MainToolbar(
 private fun MainToolbar(
 	userImage: String? = null,
 	activeButton: MainToolbarActiveButton,
+	homeFocusRequester: FocusRequester?,
+	focusHomeButton: Boolean,
 ) {
 	val focusRequester = remember { FocusRequester() }
 	val navigationRepository = koinInject<NavigationRepository>()
@@ -140,8 +151,15 @@ private fun MainToolbar(
 							}
 						},
 						colors = if (activeButton == MainToolbarActiveButton.Home) activeButtonColors else ButtonDefaults.colors(),
+						modifier = if (homeFocusRequester != null) Modifier.focusRequester(homeFocusRequester) else Modifier,
 						content = { Text(stringResource(R.string.lbl_home)) }
 					)
+
+					// The buttons are composed while the toolbar is measured, after the effects of the screen: the focus
+					// can only be given to the home button from here
+					if (homeFocusRequester != null && focusHomeButton) {
+						LaunchedEffect(homeFocusRequester) { homeFocusRequester.requestFocus() }
+					}
 					Button(
 						onClick = {
 							if (activeButton != MainToolbarActiveButton.Search) {

@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import org.jellyfin.androidtv.data.model.AppNotification
 import org.jellyfin.androidtv.data.repository.NotificationsRepository
+import org.jellyfin.androidtv.ui.home.featured.topRowIndex
 import org.jellyfin.androidtv.ui.notification.AppNotificationPresenter
 import org.jellyfin.androidtv.ui.presentation.CardPresenter
 import org.jellyfin.androidtv.ui.presentation.MutableObjectAdapter
@@ -40,7 +41,7 @@ class NotificationsHomeFragmentRow(
 		}
 
 		if (!empty && !rowAdded) {
-			rowsAdapter?.add(0, listRow)
+			rowsAdapter?.let { it.add(it.topRowIndex(), listRow) }
 			rowAdded = true
 		}
 	}

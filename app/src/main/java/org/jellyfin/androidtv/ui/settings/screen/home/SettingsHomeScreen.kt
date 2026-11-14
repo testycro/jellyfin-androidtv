@@ -32,6 +32,21 @@ fun SettingsHomeScreen() {
 			)
 		}
 
+		item {
+			val featuredBarEnabled by rememberPreference(userPreferences, UserPreferences.featuredBarEnabled)
+			val featuredBarWatchedFilter by rememberPreference(userPreferences, UserPreferences.featuredBarWatchedFilter)
+
+			ListButton(
+				headingContent = { Text(stringResource(R.string.featured_bar)) },
+				captionContent = {
+					if (featuredBarEnabled) Text(stringResource(featuredBarWatchedFilter.nameRes))
+					else Text(stringResource(R.string.state_disabled))
+				},
+				onClick = { router.push(Routes.HOME_FEATURED_BAR) },
+				modifier = Modifier.focusKey(Routes.HOME_FEATURED_BAR)
+			)
+		}
+
 		itemsIndexed(userSettingPreferences.homesections) { index, section ->
 			ListButton(
 				headingContent = { Text(stringResource(R.string.home_section_i, index + 1)) },

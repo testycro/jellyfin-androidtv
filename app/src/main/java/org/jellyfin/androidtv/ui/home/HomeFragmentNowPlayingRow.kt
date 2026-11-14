@@ -6,6 +6,7 @@ import androidx.leanback.widget.ListRow
 import androidx.leanback.widget.Row
 import androidx.lifecycle.LifecycleCoroutineScope
 import org.jellyfin.androidtv.R
+import org.jellyfin.androidtv.ui.home.featured.topRowIndex
 import org.jellyfin.androidtv.ui.playback.AudioQueueBaseRowAdapter
 import org.jellyfin.androidtv.ui.playback.MediaManager
 import org.jellyfin.androidtv.ui.presentation.CardPresenter
@@ -35,7 +36,7 @@ class HomeFragmentNowPlayingRow(
 				AudioQueueBaseRowAdapter(playbackManager, lifecycleScope)
 			)
 			// Add row if it wasn't added already
-			if (!rowsAdapter.contains(row!!)) rowsAdapter.add(0, row!!)
+			if (!rowsAdapter.contains(row!!)) rowsAdapter.add(rowsAdapter.topRowIndex(), row!!)
 		} else if (row != null) {
 			rowsAdapter.remove(row!!)
 			row = null

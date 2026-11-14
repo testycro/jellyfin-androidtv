@@ -10,6 +10,8 @@ import org.jellyfin.androidtv.preference.constant.BackdropBehavior
 import org.jellyfin.androidtv.preference.constant.BitstreamAudioMode
 import org.jellyfin.androidtv.preference.constant.BufferLength
 import org.jellyfin.androidtv.preference.constant.ClockBehavior
+import org.jellyfin.androidtv.preference.constant.FeaturedBarTrailerArea
+import org.jellyfin.androidtv.preference.constant.FeaturedBarWatchedFilter
 import org.jellyfin.androidtv.preference.constant.HEVCLevel
 import org.jellyfin.androidtv.preference.constant.HdrOverrideMode
 import org.jellyfin.androidtv.preference.constant.NextUpBehavior
@@ -317,6 +319,42 @@ class UserPreferences(context: Context) : SharedPreferenceStore(
 		 * Integrate with androidx.tvprovider for the Android TV home screen.
 		 */
 		var tvProviderEnabled = booleanPreference("tv_provider_enabled", true)
+
+		/**
+		 * Show the Featured Content Bar at the top of the home screen. Stored on this device: the home sections are
+		 * shared with jellyfin-web and the official app through the server, which don't know this section.
+		 */
+		var featuredBarEnabled = booleanPreference("featured_bar_enabled", false)
+
+		/**
+		 * Id of the library the Featured Content Bar shows the items of, empty for all libraries.
+		 */
+		var featuredBarLibrary = stringPreference("featured_bar_library", "")
+
+		/**
+		 * Which items the Featured Content Bar shows.
+		 */
+		var featuredBarWatchedFilter = enumPreference("featured_bar_watched_filter", FeaturedBarWatchedFilter.ALL)
+
+		/**
+		 * Play the trailer of the item shown in the Featured Content Bar.
+		 */
+		var featuredBarTrailerAutoplay = booleanPreference("featured_bar_trailer_autoplay", true)
+
+		/**
+		 * Where the trailers of the Featured Content Bar are shown.
+		 */
+		var featuredBarTrailerArea = enumPreference("featured_bar_trailer_area", FeaturedBarTrailerArea.FULL)
+
+		/**
+		 * Volume of the trailers of the Featured Content Bar (0 - 100) while it doesn't have the focus.
+		 */
+		var featuredBarStartVolume = intPreference("featured_bar_start_volume", 0)
+
+		/**
+		 * Volume of the trailers of the Featured Content Bar (0 - 100) while it has the focus.
+		 */
+		var featuredBarFocusVolume = intPreference("featured_bar_focus_volume", 50)
 	}
 
 	init {

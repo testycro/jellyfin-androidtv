@@ -4,6 +4,7 @@ import android.os.Bundle
 import android.view.KeyEvent
 import android.view.View
 import androidx.leanback.app.RowsSupportFragment
+import androidx.leanback.widget.ClassPresenterSelector
 import androidx.leanback.widget.ListRow
 import androidx.leanback.widget.OnItemViewClickedListener
 import androidx.leanback.widget.OnItemViewSelectedListener
@@ -39,6 +40,9 @@ import org.jellyfin.androidtv.preference.UserSettingPreferences
 import org.jellyfin.androidtv.ui.GridButton
 import org.jellyfin.androidtv.ui.browsing.CompositeClickedListener
 import org.jellyfin.androidtv.ui.browsing.CompositeSelectedListener
+import org.jellyfin.androidtv.ui.home.featured.FeaturedContentLoader
+import org.jellyfin.androidtv.ui.home.featured.FeaturedContentPresenter
+import org.jellyfin.androidtv.ui.home.featured.FeaturedContentRow
 import org.jellyfin.androidtv.ui.itemhandling.BaseRowItem
 import org.jellyfin.androidtv.ui.itemhandling.ItemLauncher
 import org.jellyfin.androidtv.ui.itemhandling.ItemRowAdapter
@@ -93,7 +97,10 @@ class HomeRowsFragment : RowsSupportFragment(), AudioEventListener, View.OnKeyLi
 	override fun onCreate(savedInstanceState: Bundle?) {
 		super.onCreate(savedInstanceState)
 
-		adapter = MutableObjectAdapter<Row>(PositionableListRowPresenter())
+		adapter = MutableObjectAdapter<Row>(ClassPresenterSelector().apply {
+			addClassPresenter(ListRow::class.java, PositionableListRowPresenter())
+			addClassPresenter(FeaturedContentRow::class.java, FeaturedContentPresenter())
+		})
 
 		lifecycleScope.launch(Dispatchers.IO) {
 			val currentUser = withTimeout(30.seconds) {
@@ -105,6 +112,13 @@ class HomeRowsFragment : RowsSupportFragment(), AudioEventListener, View.OnKeyLi
 
 			// Make sure the rows are empty
 			val rows = mutableListOf<HomeFragmentRow>()
+
+			// Items of the Featured Content Bar, the bar is left out when there are none
+			val featuredItems = if (userPreferences[UserPreferences.featuredBarEnabled]) {
+				FeaturedContentLoader.load(api, userPreferences)
+			} else {
+				emptyList()
+			}
 
 			// Check for coroutine cancellation
 			if (!isActive) return@launch
@@ -132,6 +146,7 @@ class HomeRowsFragment : RowsSupportFragment(), AudioEventListener, View.OnKeyLi
 				val cardPresenter = CardPresenter()
 
 				// Add rows in order
+				if (featuredItems.isNotEmpty()) (adapter as MutableObjectAdapter<Row>).add(FeaturedContentRow(featuredItems))
 				notificationsRow.addToRowsAdapter(requireContext(), cardPresenter, adapter as MutableObjectAdapter<Row>)
 				nowPlaying.addToRowsAdapter(requireContext(), cardPresenter, adapter as MutableObjectAdapter<Row>)
 				for (row in rows) row.addToRowsAdapter(requireContext(), cardPresenter, adapter as MutableObjectAdapter<Row>)

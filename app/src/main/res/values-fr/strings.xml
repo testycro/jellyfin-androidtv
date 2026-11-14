@@ -718,4 +718,27 @@
     <string name="tv_provider_enabled">Intégrer à l\'écran d\'accueil d\'Android TV</string>
     <string name="tv_provider_enabled_description">Afficher les chaînes et les recommandations Jellyfin sur l\'écran d\'accueil d\'Android TV</string>
     <string name="lbl_3d">3D</string>
+    <string name="featured_bar">Featured Content Bar</string>
+    <string name="featured_bar_enabled">Afficher en haut de l\'accueil</string>
+    <string name="featured_bar_enabled_description">Pris en compte à la prochaine ouverture de l\'accueil</string>
+    <string name="featured_bar_library">Bibliothèque</string>
+    <string name="featured_bar_library_all">Toutes les bibliothèques</string>
+    <string name="featured_bar_watched">Vus / non vus</string>
+    <string name="featured_bar_watched_all">Vus et non vus</string>
+    <string name="featured_bar_watched_unwatched">Non vus uniquement</string>
+    <string name="featured_bar_watched_watched">Vus uniquement</string>
+    <string name="featured_bar_trailers">Bandes-annonces</string>
+    <string name="featured_bar_trailer_autoplay">Lire les bandes-annonces automatiquement</string>
+    <string name="featured_bar_trailer_autoplay_description">Bande-annonce locale d\'abord, sinon la première bande-annonce YouTube non retirée</string>
+    <string name="featured_bar_trailer_area">Emplacement de la bande-annonce</string>
+    <string name="featured_bar_trailer_area_full">Toute la barre</string>
+    <string name="featured_bar_trailer_area_right_half">Moitié droite</string>
+    <string name="featured_bar_volume">Volume</string>
+    <string name="featured_bar_start_volume">Volume de départ</string>
+    <string name="featured_bar_focus_volume">Volume quand la barre a le focus</string>
+    <string name="featured_bar_minutes">%1$d min</string>
+    <plurals name="featured_bar_seasons">
+        <item quantity="one">%1$d saison</item>
+        <item quantity="other">%1$d saisons</item>
+    </plurals>
 </resources>
