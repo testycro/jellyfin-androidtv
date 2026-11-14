@@ -2,7 +2,7 @@ package org.jellyfin.androidtv.ui.presentation
 
 import android.annotation.SuppressLint
 import android.content.Context
-import android.view.FocusFinder
+import android.graphics.Rect
 import android.view.KeyEvent
 import android.view.View
 import android.widget.FrameLayout
@@ -192,11 +192,10 @@ private fun BaseGridView.isOnFirstLine(focused: View, itemsPerLine: Int): Boolea
 /**
  * Whether the focus has to stay where it is when the list has nothing to focus in [direction] and asks its parent.
  *
- * Going up, the focus is only supposed to leave a list from its first line. A list that scrolls quickly lets it go a
- * lot earlier, to the toolbar or the buttons above the list, which also stops the scrolling:
- * - the line above the focused item is not there yet and the list is at rest for a moment
- * - the focused item scrolled out of the screen and was removed, the list then takes the focus itself until the item
- *   it scrolls to is shown, and has no item to search from
+ * Going up, the focus is only supposed to leave a list from its first line. The search done by
+ * [keepFocusWhenScrollingUp] stops at the parent of the list with this, instead of going on to the views above the list
+ * (and to Compose, which hosts the screens) when the list has nothing to focus above an item that is not on its first
+ * line.
  *
  * @param focused The view that has the focus.
  * @param itemsPerLine The number of items next to each other in the list, 1 for a list of rows.
@@ -215,8 +214,27 @@ fun BaseGridView.keepsFocus(focused: View?, direction: Int, itemsPerLine: Int = 
 }
 
 /**
- * Keep going up in a list that scrolls vertically when it is at rest and can't go up by itself (see [keepsFocus]): the
- * focus stays in the list, but nothing would scroll either.
+ * Whether [view] is in this list.
+ */
+private fun BaseGridView.hasDescendant(view: View): Boolean {
+	var parent = view.parent
+	while (parent != null) {
+		if (parent === this) return true
+		parent = parent.parent
+	}
+	return false
+}
+
+/**
+ * Go up in a list that scrolls vertically the way Android did before the screens were hosted in Compose.
+ *
+ * Compose moves the focus itself when the list doesn't use a key: it looks for the closest focusable view in the
+ * screen, without asking the list. Leanback never gets to keep the focus while it scrolls, or to go on by itself when
+ * the line above is not shown yet. Going up quickly, that line is regularly missing, so the closest view is the toolbar
+ * or the title above the list and the focus jumps there, which also stops the scrolling.
+ *
+ * The list now does the search Android did, and uses the key itself. The key is only left to the screen from the first
+ * line, to leave the list as usual.
  *
  * @param itemsPerLine The number of items next to each other in the list, 1 for a list of rows.
  */
@@ -225,30 +243,36 @@ fun BaseGridView.keepFocusWhenScrollingUp(itemsPerLine: Int = 1) {
 	setOnKeyInterceptListener { event ->
 		if (event.action != KeyEvent.ACTION_DOWN || event.keyCode != KeyEvent.KEYCODE_DPAD_UP) return@setOnKeyInterceptListener false
 
-		// A list that is scrolling keeps going by itself
-		if (scrollState != RecyclerView.SCROLL_STATE_IDLE) return@setOnKeyInterceptListener false
-
 		val focused = findFocus() ?: return@setOnKeyInterceptListener false
 
-		val target = if (focused === this) {
-			// The list has the focus itself, give it back to the item it selected
-			selectedPosition
-		} else {
-			val item = findContainingItemView(focused) ?: return@setOnKeyInterceptListener false
-			val position = getChildAdapterPosition(item)
-
-			// From the first line the focus is supposed to leave the list
-			if (position == RecyclerView.NO_POSITION || position < itemsPerLine) return@setOnKeyInterceptListener false
-
-			// The same search the list does: when it finds something the list goes up by itself
-			if (FocusFinder.getInstance().findNextFocus(this, focused, View.FOCUS_UP) != null) return@setOnKeyInterceptListener false
-
-			position - itemsPerLine
+		// The list has the focus itself: the item it selected is not shown yet, it gets the focus once it is
+		if (focused === this) {
+			findViewHolderForAdapterPosition(selectedPosition)?.itemView?.requestFocus(View.FOCUS_UP)
+			return@setOnKeyInterceptListener true
 		}
 
-		if (target < 0) return@setOnKeyInterceptListener false
+		val item = findContainingItemView(focused) ?: return@setOnKeyInterceptListener false
+		val position = getChildAdapterPosition(item)
 
-		setSelectedPositionSmooth(target)
+		// From the first line the focus leaves the list
+		if (position != RecyclerView.NO_POSITION && position < itemsPerLine) return@setOnKeyInterceptListener false
+
+		// The item above, or the focused item when Leanback keeps the focus (it is scrolling, or it goes on by itself
+		// until the line above is shown)
+		val next = focused.focusSearch(View.FOCUS_UP)
+
+		if (next != null && next !== focused && hasDescendant(next)) {
+			// Same as Android: the item above gets the focus from where the focused item is
+			val rect = Rect()
+			focused.getFocusedRect(rect)
+			offsetDescendantRectToMyCoords(focused, rect)
+			offsetRectIntoDescendantCoords(next, rect)
+			next.requestFocus(View.FOCUS_UP, rect)
+		} else if (next !== focused && scrollState == RecyclerView.SCROLL_STATE_IDLE && position >= itemsPerLine) {
+			// Nothing to focus in the list above this item while it is at rest, go to the line above anyway
+			setSelectedPositionSmooth(position - itemsPerLine)
+		}
+
 		true
 	}
 }
